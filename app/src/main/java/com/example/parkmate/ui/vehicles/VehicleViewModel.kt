@@ -28,4 +28,10 @@ class VehicleViewModel(private val repository: VehicleRepository) : ViewModel() 
             repository.updateVehicle(Vehicle(id = id, name = name, type = type))
         }
     }
+
+    fun deleteVehicle(vehicle: Vehicle) {
+        viewModelScope.launch {
+            repository.deleteVehicle(vehicle)
+        }
+    }
 }

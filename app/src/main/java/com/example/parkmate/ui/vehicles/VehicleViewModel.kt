@@ -3,6 +3,7 @@ package com.example.parkmate.ui.vehicles
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.parkmate.data.local.entity.Vehicle
+import com.example.parkmate.data.local.entity.VehicleType
 import com.example.parkmate.data.repository.VehicleRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -19,6 +20,12 @@ class VehicleViewModel(private val repository: VehicleRepository) : ViewModel() 
     fun addVehicle(name: String, type: com.example.parkmate.data.local.entity.VehicleType) {
         viewModelScope.launch {
             repository.addVehicle(Vehicle(name = name, type = type))
+        }
+    }
+
+    fun updateVehicle(id: Long, name: String, type: VehicleType) {
+        viewModelScope.launch {
+            repository.updateVehicle(Vehicle(id = id, name = name, type = type))
         }
     }
 }

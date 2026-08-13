@@ -87,7 +87,7 @@ fun VehicleFormScreen(
         Button(
             onClick = {
                 if (vehicleId != null) {
-                    viewModel.upadteVehicle(vehicleId, name, selectedType)
+                    viewModel.updateVehicle(vehicleId, name, selectedType)
                 } else {
                     viewModel.addVehicle(name, selectedType)
                 }

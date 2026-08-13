@@ -3,6 +3,7 @@ package com.example.parkmate.ui.vehicles
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -25,7 +26,8 @@ import com.example.parkmate.data.local.entity.VehicleType
 @Composable
 fun VehicleFormScreen(
     vehicleId: Long? = null,
-    viewModel: VehicleViewModel = viewModel(factory = VehicleViewModelFactory)
+    viewModel: VehicleViewModel = viewModel(factory = VehicleViewModelFactory),
+    onSaved: () -> Unit = {}
 ) {
 
     // Contiene il nome del veicolo inserito dall'utente (inzialmente vuoto)
@@ -80,6 +82,22 @@ fun VehicleFormScreen(
                     Text(type.name)
                 }
             }
+        }
+
+        Button(
+            onClick = {
+                if (vehicleId != null) {
+                    viewModel.upadteVehicle(vehicleId, name, selectedType)
+                } else {
+                    viewModel.addVehicle(name, selectedType)
+                }
+                onSaved()
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp)
+        ) {
+            Text("Salva")
         }
     }
 }

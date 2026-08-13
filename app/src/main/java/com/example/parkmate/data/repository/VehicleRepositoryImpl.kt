@@ -7,6 +7,8 @@ import kotlinx.coroutines.flow.Flow
 class VehicleRepositoryImpl (private val dao: VehicleDao) : VehicleRepository{
     override fun getAllVehicles(): Flow<List<Vehicle>> = dao.getAll()
 
+    override suspend fun getVehicleById(id: Long): Vehicle? = dao.getById(id)
+
     override suspend fun addVehicle(vehicle: Vehicle) {
         dao.insert(vehicle)
     }

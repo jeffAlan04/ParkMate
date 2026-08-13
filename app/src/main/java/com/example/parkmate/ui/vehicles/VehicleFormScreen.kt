@@ -54,6 +54,12 @@ fun VehicleFormScreen(
             value = name,
             onValueChange = {name = it},
             label = {Text("Nome veicolo")},
+            isError = name.isBlank(),
+            supportingText = {
+                if (name.isBlank()) {
+                    Text("Nome obbligatorio")
+                }
+            },
             modifier = Modifier.fillMaxWidth()
         )
 

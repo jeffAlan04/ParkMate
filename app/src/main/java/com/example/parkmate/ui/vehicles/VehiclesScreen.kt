@@ -8,10 +8,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -35,26 +38,34 @@ fun VehiclesScreen(
     val vehicles by viewModel.vehicles.collectAsState()
 
     var vehicleToDelete by remember { mutableStateOf<Vehicle?>(null) }
-    LazyColumn {
-        items(vehicles) { vehicle ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
 
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    "${vehicle.name} - ${vehicle.type}",
-                    modifier = Modifier.clickable{ onEditVehicle(vehicle.id) }
-                )
-
-                IconButton(onClick = { viewModel.deleteVehicle(vehicle) }) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Elimina ${vehicle.name}"
+    Scaffold(
+        floatingActionButton = {
+            FloatingActionButton(onClick = onAddVehicle) {
+                Icon(Icons.Default.Add, contentDescription = "Aggiungigi veicolo")
+            }
+        }
+    ) { innerPadding ->
+        LazyColumn (modifier = Modifier.padding(innerPadding)) {
+            items(vehicles) { vehicle ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "${vehicle.name} - ${vehicle.type}",
+                        modifier = Modifier.clickable { onEditVehicle(vehicle.id) }
                     )
+
+                    IconButton(onClick = { vehicleToDelete = vehicle }) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Elimina ${vehicle.name}"
+                        )
+                    }
                 }
             }
         }

@@ -7,6 +7,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
+import com.example.parkmate.ui.vehicles.VehicleFormScreen
 import com.example.parkmate.ui.vehicles.VehiclesScreen
 @Composable
 fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
@@ -28,8 +29,10 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
 
         composable<Routes.VehicleForm> { backStackEntry ->
             val args = backStackEntry.toRoute<Routes.VehicleForm>()
-            //TODO
-            Text("Form veicolo")
+            VehicleFormScreen(
+                vehicleId = args.vehicleId,
+                onSaved = { navController.popBackStack() }
+            )
         }
 
         composable<Routes.Map> {

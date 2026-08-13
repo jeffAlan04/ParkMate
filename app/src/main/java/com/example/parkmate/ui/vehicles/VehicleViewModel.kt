@@ -14,6 +14,8 @@ class VehicleViewModel(private val repository: VehicleRepository) : ViewModel() 
     val vehicles: StateFlow<List<Vehicle>> = repository.getAllVehicles()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    suspend fun getVehicleById(id: Long): Vehicle? = repository.getVehicleById(id)
+
     fun addVehicle(name: String, type: com.example.parkmate.data.local.entity.VehicleType) {
         viewModelScope.launch {
             repository.addVehicle(Vehicle(name = name, type = type))

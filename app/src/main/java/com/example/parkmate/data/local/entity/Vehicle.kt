@@ -10,5 +10,3 @@ data class Vehicle(
     val type: VehicleType,
     val plateNumber: String? = null
 )
-
-enum class VehicleType{CAR, MOTORCYCLE, BICYCLE}

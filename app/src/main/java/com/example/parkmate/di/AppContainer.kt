@@ -8,7 +8,9 @@ import com.example.parkmate.data.repository.VehicleRepositoryImpl
 
 class AppContainer(context: Context) {
 
-    private val database = Room.databaseBuilder(context, ParkMateDatabase::class.java, "parkmate.db").build()
+    private val database = Room.databaseBuilder(context, ParkMateDatabase::class.java, "parkmate.db")
+        .fallbackToDestructiveMigration(dropAllTables = true)
+        .build()
 
     val vehicleRepository: VehicleRepository by lazy {
         VehicleRepositoryImpl(database.vehicleDao())

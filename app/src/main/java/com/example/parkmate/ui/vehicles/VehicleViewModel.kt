@@ -17,15 +17,15 @@ class VehicleViewModel(private val repository: VehicleRepository) : ViewModel() 
 
     suspend fun getVehicleById(id: Long): Vehicle? = repository.getVehicleById(id)
 
-    fun addVehicle(name: String, type: com.example.parkmate.data.local.entity.VehicleType) {
+    fun addVehicle(name: String, type: VehicleType, plateNumber: String?) {
         viewModelScope.launch {
-            repository.addVehicle(Vehicle(name = name, type = type))
+            repository.addVehicle(Vehicle(name = name, type = type, plateNumber = plateNumber))
         }
     }
 
-    fun updateVehicle(id: Long, name: String, type: VehicleType) {
+    fun updateVehicle(id: Long, name: String, type: VehicleType, plateNumber: String?) {
         viewModelScope.launch {
-            repository.updateVehicle(Vehicle(id = id, name = name, type = type))
+            repository.updateVehicle(Vehicle(id = id, name = name, type = type, plateNumber = plateNumber))
         }
     }
 

@@ -56,7 +56,11 @@ fun VehiclesScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "${vehicle.name} - ${vehicle.type}",
+                        text = if (vehicle.plateNumber.isNullOrBlank()) {
+                            vehicle.name
+                        } else {
+                            "${vehicle.name} - ${vehicle.plateNumber}"
+                        },
                         modifier = Modifier.clickable { onEditVehicle(vehicle.id) }
                     )
 

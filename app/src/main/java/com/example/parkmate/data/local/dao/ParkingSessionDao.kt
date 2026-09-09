@@ -18,6 +18,9 @@ interface ParkingSessionDao {
     @Query("SELECT * FROM parkingSession WHERE vehicleId = :vehicleId ORDER BY startTime DESC")
     fun getByVehicle(vehicleId: Long): Flow<List<ParkingSession>>
 
+    @Query("SELECT * FROM parkingSession WHERE vehicleId = :vehicleId AND endTime IS NULL LIMIT 1")
+    suspend fun getActiveSessionForVehicle(vehicleId: Long): ParkingSession?
+
     @Insert
     suspend fun insert(session: ParkingSession): Long
 

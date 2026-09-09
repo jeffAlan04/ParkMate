@@ -1,11 +1,13 @@
 package com.example.parkmate.data.local.dao
 
+import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Update
 import com.example.parkmate.data.local.entity.ParkingSession
 import kotlinx.coroutines.flow.Flow
 
+@Dao
 interface ParkingSessionDao {
     @Query("SELECT * FROM parkingSession WHERE endTime IS NULL")
     fun getActiveSessions(): Flow<List<ParkingSession>>
@@ -20,5 +22,5 @@ interface ParkingSessionDao {
     suspend fun insert(session: ParkingSession): Long
 
     @Update
-    suspend fun update(session: ParkingSession): Long
+    suspend fun update(session: ParkingSession)
 }

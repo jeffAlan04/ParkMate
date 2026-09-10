@@ -1,5 +1,8 @@
 package com.example.parkmate.ui.parking
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,7 +17,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -87,6 +92,36 @@ fun StartParkScreen (viewModel: ParkingViewModel = viewModel(factory = ParkingVi
             }
         }
 
+        AnimatedVisibility(
+            visible = selectedType == ParkingType.HOURLY,
+            enter = fadeIn(),
+            exit = fadeOut()
+        ) {
+            OutlinedTextField(
+                value = hourlyRate,
+                onValueChange = { hourlyRate = it },
+                label = { Text("Tariffa oraria (€)") },
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        AnimatedVisibility(
+            visible = selectedType == ParkingType.TICKET,
+            enter = fadeIn(),
+            exit = fadeOut()
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = fixedCost,
+                    onValueChange = { fixedCost = it },
+                    label = { Text("Costo ticket (€)") },
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+
         Text("Posizione", style = MaterialTheme.typography.labelLarge)
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth())  {
             SegmentedButton (
@@ -100,6 +135,18 @@ fun StartParkScreen (viewModel: ParkingViewModel = viewModel(factory = ParkingVi
                 onClick = { locationSource = LocationSource.SAVED },
                 shape = SegmentedButtonDefaults.itemShape(1, 2)
             ) { Text("Luogo Salvato") }
+        }
+
+        AnimatedVisibility(visible = locationSource == LocationSource.SAVED) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(savedLocations) { location ->
+                    FilterChip(
+                        selected = location.id == selecteSavedLocation?.id,
+                        onClick = { selecteSavedLocation = location },
+                        label = { Text(location.name) }
+                    )
+                }
+            }
         }
 
         Spacer(modifier = Modifier.weight(1f))

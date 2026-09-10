@@ -9,16 +9,22 @@ import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import com.example.parkmate.ui.vehicles.VehicleFormScreen
 import com.example.parkmate.ui.vehicles.VehiclesScreen
+
+// Navigazione fra le pagine
 @Composable
 fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
+
+    // Destinazioni raggiungibili
     NavHost(
         navController = navController,
         startDestination = Routes.VehiclesList,
         modifier = modifier
     ) {
+        // Schermata con lista dei veicoli
         composable<Routes.VehiclesList> {
             VehiclesScreen(
                 onAddVehicle = {
+                    // Form per l'aggiunta di un veicolo
                     navController.navigate(Routes.VehicleForm())
                 },
                 onEditVehicle = {
@@ -27,7 +33,9 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
             )
         }
 
+        // Schermata per aggiungere e modificare un veicolo
         composable<Routes.VehicleForm> { backStackEntry ->
+            // Recupera i parametri
             val args = backStackEntry.toRoute<Routes.VehicleForm>()
             VehicleFormScreen(
                 vehicleId = args.vehicleId,

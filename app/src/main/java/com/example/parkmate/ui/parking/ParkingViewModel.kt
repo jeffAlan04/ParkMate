@@ -20,12 +20,15 @@ class ParkingViewModel(
     locationRepository: LocationRepository
 ) : ViewModel() {
 
+    // Recupera tutti i veicoli dal repository
     val vehicles: StateFlow<List<Vehicle>> = vehicleRepository.getAllVehicles()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // Recupera tutti i luoghi salvati
     val savedLocations: StateFlow<List<SavedLocation>> = locationRepository.getAllLocations()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // Avvia una sessione di parcheggio
     fun startParking(
         vehicleId: Long,
         type: ParkingType,
@@ -35,7 +38,10 @@ class ParkingViewModel(
         fixedCost: Double?,
         expiryTime: Long?
     ) {
+        // Esegue l'operazione nel viewModelScope per non bloccare l'UI
         viewModelScope.launch {
+
+            // Crea una nuova sessione di parcheggio e la salva
             parkingRepository.startSession(
                 ParkingSession(
                     vehicleId = vehicleId,

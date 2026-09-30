@@ -1,6 +1,5 @@
 package com.example.parkmate.ui.parking
 
-import android.text.format.DateUtils.formatElapsedTime
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -269,7 +268,7 @@ private fun ParkingTrackerCard(display: ActiveSessionDisplay) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = formatElapsedTime(display.elapsedMillis),
+            text = formatElapsedDuration(display.elapsedMillis),
             style = MaterialTheme.typography.displayLarge,
             fontWeight = FontWeight.Bold
         )
@@ -285,7 +284,7 @@ private fun ParkingTrackerCard(display: ActiveSessionDisplay) {
     }
 }
 
-private fun formatElapsedTime(millis: Long): String {
+private fun formatElapsedDuration(millis: Long): String {
     val totalSeconds = millis / 1000
     val hours = totalSeconds / 3600
     val minutes = (totalSeconds % 3600) / 60

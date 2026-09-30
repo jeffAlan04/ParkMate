@@ -9,6 +9,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import com.example.parkmate.ui.location.LocationFormScreen
 import com.example.parkmate.ui.location.LocationListScreen
+import com.example.parkmate.ui.map.MapScreen
 import com.example.parkmate.ui.parking.StartParkScreen
 import com.example.parkmate.ui.vehicles.VehicleFormScreen
 import com.example.parkmate.ui.vehicles.VehiclesScreen
@@ -67,8 +68,7 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
         }
 
         composable<Routes.Map> {
-            //TODO
-            Text("Mappa")
+            MapScreen()
         }
 
         composable<Routes.History> {

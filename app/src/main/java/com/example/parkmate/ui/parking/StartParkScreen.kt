@@ -48,6 +48,16 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.TextButton
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.MarkerState
+import com.google.maps.android.compose.rememberCameraPositionState
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Scaffold
 
 private enum class LocationSource { CURRENT, SAVED }
 
@@ -66,215 +76,335 @@ fun StartParkScreen (
     var note by remember { mutableStateOf("") }
 
     var locationSource by remember { mutableStateOf(LocationSource.CURRENT) }
-    var selecteSavedLocation by remember { mutableStateOf<SavedLocation?>(null) }
+    var selectedSavedLocation by remember { mutableStateOf<SavedLocation?>(null) }
+
+    var baseCoordinates by remember { mutableStateOf<Pair<Double, Double>?>(null) }
+    var manualCoordinates by remember { mutableStateOf<Pair<Double, Double>?>(null) }
+    var showMapAdjustment by remember { mutableStateOf(false) }
+
+    val finalCoordinates = manualCoordinates ?: baseCoordinates
 
     var pendingStartAfterPermission by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
     val (permissionStatus, requestPermission) = rememberLocationPermissionStatus()
 
     val activeSessions by viewModel.activeSessions.collectAsState()
+
+    val coroutineScope = rememberCoroutineScope()
+
+    val snackbarHostState = remember { SnackbarHostState() }
 
     val activeSessionForSelectedVechicle = selectedVehicle?.let { vehicle ->
         activeSessions.find { it.session.vehicleId == vehicle.id }
     }
 
+    LaunchedEffect(locationSource, selectedSavedLocation, permissionStatus) {
+        manualCoordinates = null
+        baseCoordinates = when (locationSource) {
+            LocationSource.SAVED -> selectedSavedLocation?.let { it.latitude to it.longitude }
+
+            LocationSource.CURRENT -> {
+                if (permissionStatus != LocationPermissionStatus.GRANTED) {
+                    null
+                } else {
+                    val fusedClient = LocationServices.getFusedLocationProviderClient(context)
+                    LocationProvider(fusedClient).getCurrentLocation()?.let { it.latitude to it.longitude }
+                }
+            }
+        }
+    }
+
     fun attemptStartParking(scope: CoroutineScope) {
         val vehicle = selectedVehicle ?: return
 
-        scope.launch {
-            val coordinates = when (locationSource) {
-                LocationSource.SAVED -> selecteSavedLocation?.let {
-                    it.latitude to it.longitude
-                }
+        manualCoordinates?.let { (lat, lng) ->
+            viewModel.startParking(
+                vehicleId = vehicle.id,
+                type = selectedType,
+                latitude = lat,
+                longitude = lng,
+                hourlyRate = hourlyRate.toDoubleOrNull(),
+                fixedCost = fixedCost.toDoubleOrNull(),
+                expiryTime = null,
+                note = note.ifBlank { null }
+            )
+            return
+        }
 
-                LocationSource.CURRENT -> {
-                    if (permissionStatus != LocationPermissionStatus.GRANTED) {
-                        pendingStartAfterPermission = true
-                        requestPermission()
-                        null
-                    } else {
-                        val fusedClient = LocationServices.getFusedLocationProviderClient(context)
-                        LocationProvider(fusedClient).getCurrentLocation()
-                            ?.let { it.latitude to it.longitude }
-                    }
-                }
-            }
-
-            if (coordinates != null) {
-                val (lat, lng) = coordinates
+        when (locationSource) {
+            LocationSource.SAVED -> {
+                val location = selectedSavedLocation ?: return
                 viewModel.startParking(
                     vehicleId = vehicle.id,
                     type = selectedType,
-                    latitude = lat,
-                    longitude = lng,
+                    latitude = location.latitude,
+                    longitude = location.longitude,
                     hourlyRate = hourlyRate.toDoubleOrNull(),
                     fixedCost = fixedCost.toDoubleOrNull(),
                     expiryTime = null,
                     note = note.ifBlank { null }
                 )
             }
+
+            LocationSource.CURRENT -> {
+                if (permissionStatus != LocationPermissionStatus.GRANTED) {
+                    pendingStartAfterPermission = true
+                    requestPermission()
+                    return
+                }
+
+                baseCoordinates?.let { (lat, lng) ->
+                    viewModel.startParking(
+                        vehicleId = vehicle.id,
+                        type = selectedType,
+                        latitude = lat,
+                        longitude = lng,
+                        hourlyRate = hourlyRate.toDoubleOrNull(),
+                        fixedCost = fixedCost.toDoubleOrNull(),
+                        expiryTime = null,
+                        note = note.ifBlank { null }
+                    )
+                    return
+                }
+
+                scope.launch {
+                    val fusedClient = LocationServices.getFusedLocationProviderClient(context)
+                    val coordinates = LocationProvider(fusedClient).getCurrentLocation()
+                    if (coordinates != null) {
+                        viewModel.startParking(
+                            vehicleId = vehicle.id,
+                            type = selectedType,
+                            latitude = coordinates.latitude,
+                            longitude = coordinates.longitude,
+                            hourlyRate = hourlyRate.toDoubleOrNull(),
+                            fixedCost = fixedCost.toDoubleOrNull(),
+                            expiryTime = null,
+                            note = note.ifBlank { null }
+                        )
+                    } else {
+                        snackbarHostState.showSnackbar("Impossibile ottenere posizione")
+                    }
+                }
+            }
         }
+
     }
 
     LaunchedEffect(permissionStatus) {
         if (permissionStatus == LocationPermissionStatus.GRANTED && pendingStartAfterPermission) {
             pendingStartAfterPermission = false
-            attemptStartParking(this)
+            attemptStartParking(coroutineScope)
         }
     }
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(20.dp)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
-    ) {
-        // Seleziona veicolo
-        Text("Veicolo", style = MaterialTheme.typography.labelLarge)
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(vehicles) { vehicle ->
-                VehiclePickCard(
-                    vehicle = vehicle,
-                    selected = vehicle.id == selectedVehicle?.id,
-                    onClick = { selectedVehicle = vehicle }
-                )
-            }
-        }
-
-        // Seleziona tipo di parcheggio
-        Text("Tipo di parcheggio", style = MaterialTheme.typography.labelLarge)
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            ParkingType.entries.forEach { type ->
-                ParkingTypeCard(
-                    type = type,
-                    selected = type == selectedType,
-                    onClick = { selectedType = type },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-        AnimatedVisibility(
-            visible = selectedType == ParkingType.HOURLY,
-            enter = fadeIn(),
-            exit = fadeOut()
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(20.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            OutlinedTextField(
-                value = hourlyRate,
-                onValueChange = { hourlyRate = it },
-                label = { Text("Tariffa oraria (€)") },
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-
-        AnimatedVisibility(
-            visible = selectedType == ParkingType.TICKET,
-            enter = fadeIn(),
-            exit = fadeOut()
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = fixedCost,
-                    onValueChange = { fixedCost = it },
-                    label = { Text("Costo ticket (€)") },
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        }
-
-        OutlinedTextField(
-            value = note,
-            onValueChange = { note = it },
-            label = { Text("Nota (opzionale)") },
-            shape = RoundedCornerShape(14.dp),
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        // Scelta posizione
-        Text("Posizione", style = MaterialTheme.typography.labelLarge)
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-            SegmentedButton(
-                selected = locationSource == LocationSource.CURRENT,
-                onClick = { locationSource = LocationSource.CURRENT },
-                shape = SegmentedButtonDefaults.itemShape(0, 2)
-            ) { Text("Posizione Attuale") }
-
-            SegmentedButton(
-                selected = locationSource == LocationSource.SAVED,
-                onClick = { locationSource = LocationSource.SAVED },
-                shape = SegmentedButtonDefaults.itemShape(1, 2)
-            ) { Text("Luogo Salvato") }
-        }
-
-        AnimatedVisibility(visible = locationSource == LocationSource.SAVED) {
+            // Seleziona veicolo
+            Text("Veicolo", style = MaterialTheme.typography.labelLarge)
             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(savedLocations) { location ->
-                    FilterChip(
-                        selected = location.id == selecteSavedLocation?.id,
-                        onClick = { selecteSavedLocation = location },
-                        label = { Text(location.name) }
+                items(vehicles) { vehicle ->
+                    VehiclePickCard(
+                        vehicle = vehicle,
+                        selected = vehicle.id == selectedVehicle?.id,
+                        onClick = { selectedVehicle = vehicle }
                     )
                 }
             }
-        }
 
-        Spacer(modifier = Modifier.weight(1f))
-
-        val canSave = selectedVehicle != null && (locationSource == LocationSource.CURRENT || selecteSavedLocation != null)
-
-        AnimatedVisibility(
-            visible = activeSessionForSelectedVechicle != null,
-            enter = fadeIn(),
-            exit = fadeOut()
-        ) {
-            activeSessionForSelectedVechicle?.let { display ->
-                ParkingTrackerCard(display = display)
-            }
-        }
-
-        Button(
-            onClick = {
-                val activeSession = activeSessionForSelectedVechicle
-                if (activeSession != null) {
-                    viewModel.endParking(activeSession.session)
-                } else {
-                    attemptStartParking(coroutineScope)
+            if (activeSessionForSelectedVechicle == null) {
+// Seleziona tipo di parcheggio
+                Text("Tipo di parcheggio", style = MaterialTheme.typography.labelLarge)
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ParkingType.entries.forEach { type ->
+                        ParkingTypeCard(
+                            type = type,
+                            selected = type == selectedType,
+                            onClick = { selectedType = type },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
-            },
-            enabled = activeSessionForSelectedVechicle != null || canSave,
-            shape = RoundedCornerShape(14.dp),
-            modifier = Modifier.fillMaxWidth().height(52.dp)
-        ) {
-            Text(
-                if (activeSessionForSelectedVechicle != null)
-                    "Termina Parcheggio"
-                else
-                    "Avvia Parcheggio",
+                AnimatedVisibility(
+                    visible = selectedType == ParkingType.HOURLY,
+                    enter = fadeIn(),
+                    exit = fadeOut()
+                ) {
+                    OutlinedTextField(
+                        value = hourlyRate,
+                        onValueChange = { hourlyRate = it },
+                        label = { Text("Tariffa oraria (€)") },
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                AnimatedVisibility(
+                    visible = selectedType == ParkingType.TICKET,
+                    enter = fadeIn(),
+                    exit = fadeOut()
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedTextField(
+                            value = fixedCost,
+                            onValueChange = { fixedCost = it },
+                            label = { Text("Costo ticket (€)") },
+                            shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
 
-                style = MaterialTheme.typography.titleMedium)
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    label = { Text("Nota (opzionale)") },
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Scelta posizione
+                Text("Posizione", style = MaterialTheme.typography.labelLarge)
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    SegmentedButton(
+                        selected = locationSource == LocationSource.CURRENT,
+                        onClick = { locationSource = LocationSource.CURRENT },
+                        shape = SegmentedButtonDefaults.itemShape(0, 2)
+                    )  { Text("Posizione Attuale") }
+
+                    SegmentedButton(
+                        selected = locationSource == LocationSource.SAVED,
+                        onClick = { locationSource = LocationSource.SAVED },
+                        shape = SegmentedButtonDefaults.itemShape(1, 2)
+                    ) { Text("Luogo Salvato") }
+                }
+
+                AnimatedVisibility(visible = locationSource == LocationSource.SAVED) {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        items(savedLocations) { location ->
+                            FilterChip(
+                                selected = location.id == selectedSavedLocation?.id,
+                                onClick = { selectedSavedLocation = location },
+                                label = { Text(location.name) }
+                            )
+                        }
+                    }
+                }
+
+                if (locationSource == LocationSource.CURRENT && baseCoordinates != null) {
+                    TextButton(onClick = { showMapAdjustment = !showMapAdjustment }) {
+                        Text(if (showMapAdjustment) "Nascondi mappa" else "Regola posizione sulla mappa")
+                    }
+                    AnimatedVisibility(visible = showMapAdjustment) {
+                        LocationAdjustmentMap(
+                            coordinates = finalCoordinates,
+                            isOverriden = manualCoordinates != null,
+                            onMapClick = { lat, lng -> manualCoordinates = lat to lng },
+                            onResetOverride = { manualCoordinates = null }
+                        )
+                    }
+                }
+            } else {
+                ActiveSessionMap(display = activeSessionForSelectedVechicle)
+                ParkingTrackerInfo(display = activeSessionForSelectedVechicle)
+            }
+
+            val canSave =
+                selectedVehicle != null && (locationSource == LocationSource.CURRENT || selectedSavedLocation != null)
+
+            Button(
+                onClick = {
+                    if (activeSessionForSelectedVechicle != null) {
+                        viewModel.endParking(activeSessionForSelectedVechicle.session)
+                    } else {
+                        attemptStartParking(coroutineScope) }
+                    },
+                enabled = activeSessionForSelectedVechicle != null || canSave,
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth().height(52.dp)
+            ) {
+                Text(
+                    if (activeSessionForSelectedVechicle != null)
+                        "Termina parcheggio"
+                    else
+                        "Avvia parcheggio",
+                    style = MaterialTheme.typography.titleMedium)
+            }
+
         }
-
-
     }
 }
 
 @Composable
-private fun ParkingTrackerCard(display: ActiveSessionDisplay) {
+private fun LocationAdjustmentMap(
+    coordinates: Pair<Double, Double>?,
+    isOverriden: Boolean,
+    onMapClick: (Double, Double) -> Unit,
+    onResetOverride: () -> Unit
+) {
+    val markerPosition = coordinates?.let { LatLng(it.first, it.second) }
+
+    val cameraPositionState = rememberCameraPositionState {
+        markerPosition?.let {
+            position = CameraPosition.fromLatLngZoom(it, 16f)
+        }
+    }
+
+    Column {
+        GoogleMap(
+            modifier = Modifier.fillMaxWidth().height(220.dp),
+            cameraPositionState = cameraPositionState,
+            onMapClick = { latLng -> onMapClick(latLng.latitude, latLng.longitude) }
+        ) {
+            markerPosition?.let {
+                Marker(state = MarkerState(position = it))
+            }
+        }
+
+        if (isOverriden) {
+            TextButton(onClick = onResetOverride) {
+                Text("Ripristina posizione")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActiveSessionMap(display: ActiveSessionDisplay) {
+    val markerPosition = LatLng(display.session.latitude, display.session.longitude)
+
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(markerPosition, 16f)
+    }
+
+    GoogleMap(
+        modifier = Modifier.fillMaxWidth().height(200.dp),
+        cameraPositionState = cameraPositionState
+    ) {
+        Marker(state = MarkerState(position = markerPosition))
+    }
+}
+
+@Composable
+private fun ParkingTrackerInfo(display: ActiveSessionDisplay) {
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
             text = formatElapsedDuration(display.elapsedMillis),
             style = MaterialTheme.typography.displayLarge,
             fontWeight = FontWeight.Bold
         )
-
         display.currentCost?.let { cost ->
-            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = String.format(Locale.ITALY, "€ %.2f", cost),
                 style = MaterialTheme.typography.headlineSmall,

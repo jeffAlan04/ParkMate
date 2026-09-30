@@ -13,9 +13,9 @@ sealed interface Routes {
     @Serializable
     data class VehicleForm(val vehicleId: Long? = null) : Routes
 
-    // Schermata del parcheggio attiva
+    // Form per avviare una nuova sessione di parcheggio
     @Serializable
-    data object ActiveParking : Routes
+    data object StartPark : Routes
 
     // Schermata della mappa
     @Serializable

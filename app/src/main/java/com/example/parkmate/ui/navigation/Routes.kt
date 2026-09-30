@@ -8,7 +8,6 @@ sealed interface Routes {
     // Schermata con lista dei veicoli
     @Serializable
     data object VehiclesList : Routes
-
     // Form per creare o modificare un veicolo
     @Serializable
     data class VehicleForm(val vehicleId: Long? = null) : Routes
@@ -17,6 +16,10 @@ sealed interface Routes {
     @Serializable
     data object StartPark : Routes
 
+    @Serializable
+    data object LocationList : Routes
+    @Serializable
+    data class LocationForm(val locationId: Long? = null) : Routes
     // Schermata della mappa
     @Serializable
     data object Map : Routes

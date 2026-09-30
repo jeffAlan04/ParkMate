@@ -8,6 +8,8 @@ class LocationRepositoryImpl(private val dao: SavedLocationDao) : LocationReposi
     // Restituisce tutte le posizioni salvate
     override fun getAllLocations(): Flow<List<SavedLocation>> = dao.getAll()
 
+    override suspend fun getLocationById(locationId: Long): SavedLocation? = dao.getById(locationId)
+
     // Aggiunge una posizione al DB
     override suspend fun addLocation(location: SavedLocation) {
         dao.insert(location)

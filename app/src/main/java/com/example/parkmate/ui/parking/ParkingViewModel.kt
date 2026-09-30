@@ -9,11 +9,28 @@ import com.example.parkmate.data.repository.LocationRepository
 import com.example.parkmate.data.repository.ParkingRepository
 import com.example.parkmate.data.repository.VehicleRepository
 import com.example.parkmate.data.local.entity.SavedLocation
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+data class ActiveSessionDisplay(
+    val session: ParkingSession,
+    val vehicleName: String,
+    val elapsedMillis: Long,
+    val currentCost: Double?
+)
+
+private fun tickerFlow(intervalMillis: Long = 1000L): Flow<Unit> = flow {
+    while (true) {
+        emit(Unit)
+        delay(intervalMillis)
+    }
+}
 class ParkingViewModel(
     private val parkingRepository: ParkingRepository,
     vehicleRepository: VehicleRepository,
@@ -36,7 +53,8 @@ class ParkingViewModel(
         longitude: Double,
         hourlyRate: Double?,
         fixedCost: Double?,
-        expiryTime: Long?
+        expiryTime: Long?,
+        note: String?
     ) {
         // Esegue l'operazione nel viewModelScope per non bloccare l'UI
         viewModelScope.launch {
@@ -51,10 +69,45 @@ class ParkingViewModel(
                     longitude = longitude,
                     hourlyRate = hourlyRate,
                     fixedCost = fixedCost,
-                    expiryTime = expiryTime
+                    expiryTime = expiryTime,
+                    note = note
                 )
             )
         }
     }
 
+    val activeSessions: StateFlow<List<ActiveSessionDisplay>> = combine(
+        tickerFlow(),
+        parkingRepository.getActiveSession(),
+        vehicleRepository.getAllVehicles()
+    ) {_, sessions, vehicles ->
+        val now = System.currentTimeMillis()
+
+        sessions.map { session ->
+            val vehicleName = vehicles.find { it.id == session.vehicleId }?.name ?: "Veicolo"
+            val elapsed = now - session.startTime
+
+            val cost = when (session.type) {
+                ParkingType.HOURLY -> session.hourlyRate?.let { rate ->
+                    val hourElapesd = elapsed / 3600000.0
+                    hourElapesd * rate
+                }
+                ParkingType.TICKET -> session.fixedCost
+                ParkingType.FREE -> null
+            }
+
+            ActiveSessionDisplay (
+                session = session,
+                vehicleName = vehicleName,
+                elapsedMillis = elapsed,
+                currentCost = cost
+            )
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun endParking(session: ParkingSession) {
+        viewModelScope.launch {
+            parkingRepository.endSession(session)
+        }
+    }
 }

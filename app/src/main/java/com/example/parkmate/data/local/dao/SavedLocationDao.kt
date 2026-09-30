@@ -15,6 +15,9 @@ interface SavedLocationDao {
     @Query("SELECT * FROM savedLocations ORDER BY name")
     fun getAll(): Flow<List<SavedLocation>>
 
+    @Query("SELECT * FROM savedLocations WHERE id = :locationId")
+    suspend fun getById(locationId: Long): SavedLocation?
+
     // Inserisce una nuova posizione
     @Insert
     suspend fun insert(location: SavedLocation): Long

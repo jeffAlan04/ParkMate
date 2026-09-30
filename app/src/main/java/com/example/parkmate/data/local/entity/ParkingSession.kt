@@ -24,5 +24,6 @@ data class ParkingSession(
     val hourlyRate: Double? = null,
     val fixedCost: Double? = null,
     val expiryTime: Long? = null,
-    val photoPath: String? = null
+    val photoPath: String? = null,
+    val note: String? = null
 )

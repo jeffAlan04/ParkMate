@@ -27,6 +27,7 @@ import com.example.parkmate.ui.navigation.NavGraph
 import com.example.parkmate.ui.navigation.Routes
 import com.example.parkmate.ui.theme.ParkMateTheme
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.material.icons.filled.LocalParking
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,6 +48,7 @@ fun ParkMateApp() {
 
     val bottomNavItems = listOf(
         BottonNavItem(Routes.VehiclesList, "Veicoli", Icons.Default.DirectionsCar),
+        BottonNavItem(Routes.StartPark, "Parcheggi", Icons.Default.LocalParking),
         BottonNavItem(Routes.Map, "Mappa", Icons.Default.Map),
         BottonNavItem(Routes.History, "Storico", Icons.Default.History),
         BottonNavItem(Routes.Stats, "Statistiche", Icons.Default.BarChart)

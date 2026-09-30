@@ -1,6 +1,7 @@
 package com.example.parkmate.data.location
 
 import android.annotation.SuppressLint
+import android.util.Log
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
@@ -20,7 +21,7 @@ class LocationProvider(private val fusedClient: FusedLocationProviderClient) {
 
             // Chiede la posizione attutale del dispositivo
             fusedClient.getCurrentLocation(
-                Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+                Priority.PRIORITY_HIGH_ACCURACY,
                 // token per annullare la richiesta
                 cancellationTokenSource.token
 
@@ -37,7 +38,7 @@ class LocationProvider(private val fusedClient: FusedLocationProviderClient) {
                 }
 
                 // Callback in caso di errore
-            }.addOnFailureListener {
+            }.addOnFailureListener { exception ->
                 continuation.resume(null)
             }
 

@@ -11,7 +11,7 @@ import com.example.parkmate.data.local.entity.SavedLocation
 import com.example.parkmate.data.local.entity.Vehicle
 
 // Database Room dell'app
-@Database(entities = [Vehicle::class, ParkingSession::class, SavedLocation::class], version = 4, exportSchema = false)
+@Database(entities = [Vehicle::class, ParkingSession::class, SavedLocation::class], version = 6, exportSchema = false)
 abstract class ParkMateDatabase : RoomDatabase(){
 
     // Restituisce il DAO utilizzato per accedere alla tabella dei veicoli

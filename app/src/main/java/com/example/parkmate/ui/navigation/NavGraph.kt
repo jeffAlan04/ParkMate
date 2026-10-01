@@ -56,12 +56,11 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
         }
 
         composable<Routes.History> {
-            DataVisualizationScreen()
+            //TODO
         }
 
         composable<Routes.Stats> {
-            //TODO
-            Text("Statistiche")
+            DataVisualizationScreen()
         }
     }
 }

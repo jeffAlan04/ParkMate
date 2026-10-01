@@ -7,6 +7,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
+import com.example.parkmate.ui.history.HistoryScreen
 import com.example.parkmate.ui.map.MapScreen
 import com.example.parkmate.ui.parking.StartParkScreen
 import com.example.parkmate.ui.vehicles.VehicleFormScreen
@@ -56,7 +57,7 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
         }
 
         composable<Routes.History> {
-            //TODO
+            HistoryScreen()
         }
 
         composable<Routes.Stats> {

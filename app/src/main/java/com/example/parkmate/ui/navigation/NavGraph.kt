@@ -13,6 +13,7 @@ import com.example.parkmate.ui.map.MapScreen
 import com.example.parkmate.ui.parking.StartParkScreen
 import com.example.parkmate.ui.vehicles.VehicleFormScreen
 import com.example.parkmate.ui.vehicles.VehiclesScreen
+import com.example.parkmate.ui.visualization.DataVisualizationScreen
 
 // Navigazione fra le pagine
 @Composable
@@ -72,8 +73,7 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
         }
 
         composable<Routes.History> {
-            //TODO
-            Text("Storico")
+            DataVisualizationScreen()
         }
 
         composable<Routes.Stats> {

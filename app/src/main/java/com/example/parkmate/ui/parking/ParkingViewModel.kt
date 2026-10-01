@@ -76,17 +76,24 @@ class ParkingViewModel(
         }
     }
 
+    // StateFlow che espone la lista dei parcheggi attivi, aggiornata in tempo reale
     val activeSessions: StateFlow<List<ActiveSessionDisplay>> = combine(
+        // Unisce tre flussi: un timer al secondo, i parcheggi dal DB e la lista veicoli
         tickerFlow(),
         parkingRepository.getActiveSession(),
         vehicleRepository.getAllVehicles()
     ) {_, sessions, vehicles ->
         val now = System.currentTimeMillis()
 
+        // Per ogni sessione attiva calcola i dati dinamici per la visualizzazione
         sessions.map { session ->
+            // Cerca il nome del veicolo associato tramite l'id
             val vehicleName = vehicles.find { it.id == session.vehicleId }?.name ?: "Veicolo"
+            
+            // Calcola il tempo passato dall'avvio
             val elapsed = now - session.startTime
 
+            // Calcolo del costo corrente in base al tipo di parcheggio
             val cost = when (session.type) {
                 ParkingType.HOURLY -> session.hourlyRate?.let { rate ->
                     val hourElapesd = elapsed / 3600000.0
@@ -96,6 +103,7 @@ class ParkingViewModel(
                 ParkingType.FREE -> null
             }
 
+            // Creazione  dell'oggetto per l'interfaccia
             ActiveSessionDisplay (
                 session = session,
                 vehicleName = vehicleName,
@@ -103,10 +111,16 @@ class ParkingViewModel(
                 currentCost = cost
             )
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000), // Smette di aggiornare se l'UI non è visibile per 5s
+        initialValue = emptyList()
+    )
 
+    // Termina una sessione di parcheggio
     fun endParking(session: ParkingSession) {
         viewModelScope.launch {
+            // Aggiorna lo stato della sessione nel database
             parkingRepository.endSession(session)
         }
     }

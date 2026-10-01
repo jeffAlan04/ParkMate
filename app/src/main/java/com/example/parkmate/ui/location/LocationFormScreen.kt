@@ -32,14 +32,15 @@ import com.example.parkmate.ui.parking.LocationPermissionStatus
 import com.google.android.gms.location.LocationServices
 import com.example.parkmate.data.location.LocationProvider
 
+// Schermata per l'inserimento o la modifica di un luogo salvato.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LocationFormScreen(
     locationId: Long? = null,
     viewModel: LocationViewModel = viewModel(factory = LocationViewModelFactory),
-    onSaved: () -> Unit = {}
+    onSaved: () -> Unit = {}  // Callback richiamata dopo il salvataggio
 ) {
-
+    // Stati locali per i campi di testo del modulo
     var name by remember { mutableStateOf("") }
     var latitudeText by remember { mutableStateOf("") }
     var longitudeText by remember { mutableStateOf("") }
@@ -70,6 +71,7 @@ fun LocationFormScreen(
             modifier = Modifier.fillMaxSize().padding(innerPadding).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
+            // Campo di input per il nome
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
@@ -85,9 +87,10 @@ fun LocationFormScreen(
                 onClick = {
                     coroutineScope.launch {
                         if (permissionStatus != LocationPermissionStatus.GRANTED) {
-                            requestPermission()
+                            requestPermission() // Chiede i permessi se mancano
                         } else {
                             val fusedClient = LocationServices.getFusedLocationProviderClient(context)
+                            // Tenta di ottenere la posizione GPS attuale
                             LocationProvider(fusedClient).getCurrentLocation()?.let {
                                 latitudeText = it.latitude.toString()
                                 longitudeText = it.longitude.toString()
@@ -101,6 +104,7 @@ fun LocationFormScreen(
                 Text("Usa posizione attuale")
             }
 
+            // Visualizzazione della Latitudine
             OutlinedTextField(
                 value = latitudeText,
                 onValueChange = { latitudeText = it },
@@ -109,6 +113,7 @@ fun LocationFormScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            // Visualizzazione della Longitudine
             OutlinedTextField(
                 value = longitudeText,
                 onValueChange = { longitudeText = it },
@@ -119,16 +124,20 @@ fun LocationFormScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
+            // Abilita il salvataggio solo se i campi sono compilati correttamente
             val lat = latitudeText.toDoubleOrNull()
             val lng = longitudeText.toDoubleOrNull()
             val canSave = name.isNotBlank() && lat != null && lng != null
 
+            // Bottone finale per confermare l'inserimento o la modifica nel database
             Button(
                 onClick = {
                     if (lat != null && lng != null) {
                         if (locationId != null) {
+                            // Modalità Modifica
                             viewModel.updateLocation(locationId, name, lat, lng)
                         } else {
+                            // Modalità Nuovo Inserimento
                             viewModel.addLocation(name, lat, lng)
                         }
                         onSaved()

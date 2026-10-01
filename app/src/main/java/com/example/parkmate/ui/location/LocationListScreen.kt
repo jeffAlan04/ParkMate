@@ -33,13 +33,17 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.parkmate.data.local.entity.SavedLocation
 import androidx.compose.foundation.lazy.items
 
+// Schermata che visualizza l'elenco dei luoghi salvati dall'utente.
 @Composable
 fun LocationListScreen(
     viewModel: LocationViewModel = viewModel(factory = LocationViewModelFactory),
-    onAddLocation: () -> Unit = {},
-    onEditLocation: (Long) -> Unit = {}
+    onAddLocation: () -> Unit = {},      // Callback per navigare alla creazione di un nuovo luogo
+    onEditLocation: (Long) -> Unit = {}  // Callback per navigare alla modifica di un luogo esistente
 ) {
+    // Osserva la lista dei luoghi dal database tramite lo StateFlow del ViewModel
     val locations by viewModel.locations.collectAsState()
+    
+    // Stato locale per gestire quale luogo l'utente intende eliminare
     var locationToDelete by remember { mutableStateOf<SavedLocation?>(null) }
 
     Scaffold(
@@ -50,6 +54,7 @@ fun LocationListScreen(
         }
     ) { innerPadding ->
         if (locations.isEmpty()) {
+            // Se la lista è vuota mostra un messaggio
             Box(
                 modifier = Modifier.fillMaxSize().padding(innerPadding),
                 contentAlignment = Alignment.Center
@@ -57,18 +62,26 @@ fun LocationListScreen(
                 Text("Nessun luogo salvato ancora", style = MaterialTheme.typography.bodyLarge)
             }
         } else {
+            // Elenco per visualizzare i luoghi salvati
             LazyColumn(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
                 items(locations, key = { it.id }) { location ->
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(
-                            modifier = Modifier.clickable { onEditLocation(location.id) }
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { onEditLocation(location.id) }
                         ) {
+                            // Nome
                             Text(location.name, style = MaterialTheme.typography.titleMedium)
+                            // Coordinate
                             Text(
-                                String .format("%.5f, %.5f", location.latitude, location.longitude),
+                                String.format("%.5f, %.5f", location.latitude, location.longitude),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -83,21 +96,23 @@ fun LocationListScreen(
         }
     }
 
+    // Dialog di conferma per l'eliminazione di un luogo.
     locationToDelete?.let { location ->
         AlertDialog(
             onDismissRequest = { locationToDelete = null },
             title = { Text("Eliminare luogo?") },
             text = { Text("Sei sicuro di voler eliminare \"${location.name}\"?") },
             confirmButton = {
+                // Elimina il luogo
                 TextButton(onClick =  {
                     viewModel.deleteLocation(location)
                     locationToDelete = null
                 }) { Text("Elimina") }
             },
             dismissButton = {
+                // Chiude semplicemente il dialogo
                 TextButton(onClick = { locationToDelete = null }) { Text("Annulla") }
             }
         )
     }
-
 }

@@ -7,8 +7,6 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
-import com.example.parkmate.ui.location.LocationFormScreen
-import com.example.parkmate.ui.location.LocationListScreen
 import com.example.parkmate.ui.map.MapScreen
 import com.example.parkmate.ui.parking.StartParkScreen
 import com.example.parkmate.ui.vehicles.VehicleFormScreen
@@ -51,21 +49,6 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
         // Form per avviare una nuova sessione di parcheggio
         composable<Routes.StartPark> {
             StartParkScreen()
-        }
-
-        composable<Routes.LocationList> {
-            LocationListScreen(
-                onAddLocation = { navController.navigate(Routes.LocationForm()) },
-                onEditLocation = { id -> navController.navigate(Routes.LocationForm(locationId = id)) }
-            )
-        }
-
-        composable<Routes.LocationForm> { backStackEntry ->
-            val args = backStackEntry.toRoute<Routes.LocationForm>()
-            LocationFormScreen(
-                locationId = args.locationId,
-                onSaved = { navController.popBackStack() }
-            )
         }
 
         composable<Routes.Map> {

@@ -88,6 +88,21 @@ fun StartParkScreen (
     // Coordinate manuali preferite a quelle base
     val finalCoordinates = manualCoordinates ?: baseCoordinates
 
+    val effectiveType = when (locationSource) {
+        LocationSource.SAVED -> selectedSavedLocation?.parkingType ?: selectedType
+        LocationSource.CURRENT -> selectedType
+    }
+
+    val effectiveHourlyRate = when (locationSource) {
+        LocationSource.SAVED -> selectedSavedLocation?.hourlyRate
+        LocationSource.CURRENT -> hourlyRate.toDoubleOrNull()
+    }
+
+    val effectiveFixedCost = when (locationSource) {
+        LocationSource.SAVED -> selectedSavedLocation?.fixedCost
+        LocationSource.CURRENT -> fixedCost.toDoubleOrNull()
+    }
+
     // Flag per riprovare l'avvio dopo la richiesta di permesso
     var pendingStartAfterPermission by remember { mutableStateOf(false) }
 
@@ -127,11 +142,11 @@ fun StartParkScreen (
         manualCoordinates?.let { (lat, lng) ->
             viewModel.startParking(
                 vehicleId = vehicle.id,
-                type = selectedType,
+                type = effectiveType,
                 latitude = lat,
                 longitude = lng,
-                hourlyRate = hourlyRate.toDoubleOrNull(),
-                fixedCost = fixedCost.toDoubleOrNull(),
+                hourlyRate = effectiveHourlyRate,
+                fixedCost = effectiveFixedCost,
                 expiryTime = null,
                 note = note.ifBlank { null }
             )
@@ -144,11 +159,11 @@ fun StartParkScreen (
                 val location = selectedSavedLocation ?: return
                 viewModel.startParking(
                     vehicleId = vehicle.id,
-                    type = selectedType,
+                    type = effectiveType,
                     latitude = location.latitude,
                     longitude = location.longitude,
-                    hourlyRate = hourlyRate.toDoubleOrNull(),
-                    fixedCost = fixedCost.toDoubleOrNull(),
+                    hourlyRate = effectiveHourlyRate,
+                    fixedCost = effectiveFixedCost,
                     expiryTime = null,
                     note = note.ifBlank { null }
                 )
@@ -166,11 +181,11 @@ fun StartParkScreen (
                 baseCoordinates?.let { (lat, lng) ->
                     viewModel.startParking(
                         vehicleId = vehicle.id,
-                        type = selectedType,
+                        type = effectiveType,
                         latitude = lat,
                         longitude = lng,
-                        hourlyRate = hourlyRate.toDoubleOrNull(),
-                        fixedCost = fixedCost.toDoubleOrNull(),
+                        hourlyRate = effectiveHourlyRate,
+                        fixedCost = effectiveFixedCost,
                         expiryTime = null,
                         note = note.ifBlank { null }
                     )
@@ -235,40 +250,47 @@ fun StartParkScreen (
             
             // Se non c'è nessuna sessione attiva per l'auto scelta, mostra il form
             if (activeSessionForSelectedVechicle == null) {
-                
-                // Seleziona tipo di parcheggio
-                Text("Tipo di parcheggio", style = MaterialTheme.typography.labelLarge)
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    ParkingType.entries.forEach { type ->
-                        ParkingTypeCard(
-                            type = type,
-                            selected = type == selectedType,
-                            onClick = { selectedType = type },
-                            modifier = Modifier.weight(1f)
-                        )
+
+                if (locationSource == LocationSource.CURRENT) {
+                    // Seleziona tipo di parcheggio
+                    Text("Tipo di parcheggio", style = MaterialTheme.typography.labelLarge)
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        ParkingType.entries.forEach { type ->
+                            ParkingTypeCard(
+                                type = type,
+                                selected = type == selectedType,
+                                onClick = { selectedType = type },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
-                }
-                
-                AnimatedVisibility(visible = selectedType == ParkingType.HOURLY, enter = fadeIn(), exit = fadeOut()) {
-                    OutlinedTextField(
-                        value = hourlyRate,
-                        onValueChange = { hourlyRate = it },
-                        label = { Text("Tariffa oraria (€)") },
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-                AnimatedVisibility(visible = selectedType == ParkingType.TICKET, enter = fadeIn(), exit = fadeOut()) {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+
+                    AnimatedVisibility(visible = selectedType == ParkingType.HOURLY, enter = fadeIn(), exit = fadeOut()) {
                         OutlinedTextField(
-                            value = fixedCost,
-                            onValueChange = { fixedCost = it },
-                            label = { Text("Costo ticket (€)") },
+                            value = hourlyRate,
+                            onValueChange = { hourlyRate = it },
+                            label = { Text("Tariffa oraria (€)") },
                             shape = RoundedCornerShape(14.dp),
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
+                    AnimatedVisibility(visible = selectedType == ParkingType.TICKET, enter = fadeIn(), exit = fadeOut()) {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            OutlinedTextField(
+                                value = fixedCost,
+                                onValueChange = { fixedCost = it },
+                                label = { Text("Costo ticket (€)") },
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                } else {
+                    selectedSavedLocation?.let { location ->
+                        SavedLocationCostSumamry(location)
+                    }
                 }
+
 
                 OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("Nota (opzionale)") }, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth())
 
@@ -483,6 +505,31 @@ private fun ParkingTypeCard(type: ParkingType, selected: Boolean, onClick: () ->
                 color = if (selected) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+@Composable
+private fun SavedLocationCostSumamry(location: SavedLocation) {
+    Card(
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Tipo di parcheggio: ${location.parkingType.name}", style = MaterialTheme.typography.bodyMedium)
+            when (location.parkingType) {
+                ParkingType.HOURLY -> Text(
+                    "Tariffa oraria: ${location.hourlyRate}€",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+
+                ParkingType.TICKET -> Text(
+                    "Costo ticket: €%.2f".format(location.fixedCost ?: 0.0),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                ParkingType.FREE -> Text("Parcheggio gratuito", style = MaterialTheme.typography.bodyMedium)
+            }
         }
     }
 }

@@ -1,7 +1,12 @@
 package com.example.parkmate.ui.parking
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.workDataOf
 import com.example.parkmate.data.local.entity.ParkingSession
 import com.example.parkmate.data.local.entity.ParkingType
 import com.example.parkmate.data.local.entity.Vehicle
@@ -9,6 +14,7 @@ import com.example.parkmate.data.repository.LocationRepository
 import com.example.parkmate.data.repository.ParkingRepository
 import com.example.parkmate.data.repository.VehicleRepository
 import com.example.parkmate.data.local.entity.SavedLocation
+import com.example.parkmate.notification.ParkingExpiryWorker
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -17,12 +23,14 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.concurrent.TimeUnit
 
 data class ActiveSessionDisplay(
     val session: ParkingSession,
     val vehicleName: String,
     val elapsedMillis: Long,
-    val currentCost: Double?
+    val currentCost: Double?,
+    val remainingMillis: Long? = null
 )
 
 private fun tickerFlow(intervalMillis: Long = 1000L): Flow<Unit> = flow {
@@ -34,7 +42,8 @@ private fun tickerFlow(intervalMillis: Long = 1000L): Flow<Unit> = flow {
 class ParkingViewModel(
     private val parkingRepository: ParkingRepository,
     vehicleRepository: VehicleRepository,
-    locationRepository: LocationRepository
+    locationRepository: LocationRepository,
+    private val appContext: Context
 ) : ViewModel() {
 
     // Recupera tutti i veicoli dal repository
@@ -54,6 +63,7 @@ class ParkingViewModel(
         hourlyRate: Double?,
         fixedCost: Double?,
         expiryTime: Long?,
+        warningMinutesBefore: Int?,
         note: String?
     ) {
         // Esegue l'operazione nel viewModelScope per non bloccare l'UI
@@ -73,6 +83,34 @@ class ParkingViewModel(
                     note = note
                 )
             )
+
+            if (type == ParkingType.TICKET && expiryTime != null) {
+                val vehicleName = vehicles.value.find { it.id == vehicleId }?.name ?: "Veicolo"
+                scheduleExpiryNotifications(vehicleId, vehicleName, expiryTime, warningMinutesBefore ?: 15)
+            }
+        }
+    }
+
+    private fun scheduleExpiryNotifications(vehicleId: Long, vehicleName: String, expiryTime: Long, warningMinutesBefore: Int) {
+        val now = System.currentTimeMillis()
+        val workManager = WorkManager.getInstance(appContext)
+
+        val finalDelay = expiryTime - now
+        if (finalDelay > 0) {
+            val finalRequest = OneTimeWorkRequestBuilder<ParkingExpiryWorker>()
+                .setInitialDelay(finalDelay, TimeUnit.MILLISECONDS)
+                .setInputData(workDataOf("vehicleName" to vehicleName, "isWarning" to false))
+                .build()
+            workManager.enqueueUniqueWork("parking_expiry_final_$vehicleId", ExistingWorkPolicy.REPLACE, finalRequest)
+        }
+
+        val warningDelay = expiryTime - now - warningMinutesBefore * 60000
+        if (warningDelay > 0) {
+            val warningRequest = OneTimeWorkRequestBuilder<ParkingExpiryWorker>()
+                .setInitialDelay(warningDelay, TimeUnit.MILLISECONDS)
+                .setInputData(workDataOf("vehicleName" to vehicleName, "isWarning" to true))
+                .build()
+            workManager.enqueueUniqueWork("parking_expiry_warning_$vehicleId", ExistingWorkPolicy.REPLACE, warningRequest)
         }
     }
 
@@ -103,12 +141,14 @@ class ParkingViewModel(
                 ParkingType.FREE -> null
             }
 
+            val remaining = session.expiryTime?.let { it - now }
             // Creazione  dell'oggetto per l'interfaccia
             ActiveSessionDisplay (
                 session = session,
                 vehicleName = vehicleName,
                 elapsedMillis = elapsed,
-                currentCost = cost
+                currentCost = cost,
+                remainingMillis = remaining
             )
         }
     }.stateIn(
@@ -122,6 +162,12 @@ class ParkingViewModel(
         viewModelScope.launch {
             // Aggiorna lo stato della sessione nel database
             parkingRepository.endSession(session)
+
+            if (session.type == ParkingType.TICKET) {
+                val workManager = WorkManager.getInstance(appContext)
+                workManager.cancelUniqueWork("parking_expiry_final_${session.vehicleId}")
+                workManager.cancelUniqueWork("parking_expiry_warning_${session.vehicleId}")
+            }
         }
     }
 }

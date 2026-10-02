@@ -1,7 +1,10 @@
 package com.example.parkmate
 
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -27,7 +30,12 @@ import com.example.parkmate.ui.navigation.NavGraph
 import com.example.parkmate.ui.navigation.Routes
 import com.example.parkmate.ui.theme.ParkMateTheme
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.filled.LocalParking
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+import android.Manifest
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,6 +52,8 @@ class MainActivity : ComponentActivity() {
 private data class BottonNavItem(val route: Routes, val label: String, val icon: ImageVector)
 @Composable
 fun ParkMateApp() {
+    RequestNotificationPermission()
+
     val navController = rememberNavController()
 
     val bottomNavItems = listOf(
@@ -86,5 +96,23 @@ fun ParkMateApp() {
         NavGraph(
             navController = navController,
             modifier = Modifier.padding(innerPadding))
+    }
+}
+
+@Composable
+fun RequestNotificationPermission() {
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
+
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+
+            if (!granted) {
+                launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
     }
 }

@@ -17,7 +17,8 @@ object ParkingViewModelFactory : ViewModelProvider.Factory {
         return ParkingViewModel(
             parkingRepository = app.container.parkingRepository,
             vehicleRepository = app.container.vehicleRepository,
-            locationRepository = app.container.locationRepository
+            locationRepository = app.container.locationRepository,
+            appContext = app.applicationContext
         ) as T
     }
 }

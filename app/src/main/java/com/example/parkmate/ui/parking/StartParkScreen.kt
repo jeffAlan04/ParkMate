@@ -6,7 +6,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -48,6 +47,8 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import androidx.compose.material3.TextButton
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
@@ -58,6 +59,8 @@ import com.google.maps.android.compose.rememberCameraPositionState
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Scaffold
+import java.text.SimpleDateFormat
+import java.util.Calendar
 
 private enum class LocationSource { CURRENT, SAVED }
 
@@ -75,6 +78,8 @@ fun StartParkScreen (
     var selectedType by remember { mutableStateOf(ParkingType.FREE) }
     var hourlyRate by remember { mutableStateOf("") }
     var fixedCost by remember { mutableStateOf("") }
+    var expiryTime by remember { mutableStateOf<Long?>(null) }
+    var warningMinutesBefore by remember { mutableStateOf(15) }
     var note by remember { mutableStateOf("") }
 
     var locationSource by remember { mutableStateOf(LocationSource.CURRENT) }
@@ -147,7 +152,8 @@ fun StartParkScreen (
                 longitude = lng,
                 hourlyRate = effectiveHourlyRate,
                 fixedCost = effectiveFixedCost,
-                expiryTime = null,
+                expiryTime = expiryTime,
+                warningMinutesBefore = warningMinutesBefore,
                 note = note.ifBlank { null }
             )
             return
@@ -164,7 +170,8 @@ fun StartParkScreen (
                     longitude = location.longitude,
                     hourlyRate = effectiveHourlyRate,
                     fixedCost = effectiveFixedCost,
-                    expiryTime = null,
+                    expiryTime = expiryTime,
+                    warningMinutesBefore = warningMinutesBefore,
                     note = note.ifBlank { null }
                 )
             }
@@ -186,7 +193,8 @@ fun StartParkScreen (
                         longitude = lng,
                         hourlyRate = effectiveHourlyRate,
                         fixedCost = effectiveFixedCost,
-                        expiryTime = null,
+                        expiryTime = expiryTime,
+                        warningMinutesBefore = warningMinutesBefore,
                         note = note.ifBlank { null }
                     )
                     return
@@ -204,7 +212,8 @@ fun StartParkScreen (
                             longitude = coordinates.longitude,
                             hourlyRate = hourlyRate.toDoubleOrNull(),
                             fixedCost = fixedCost.toDoubleOrNull(),
-                            expiryTime = null,
+                            expiryTime = expiryTime,
+                            warningMinutesBefore = warningMinutesBefore,
                             note = note.ifBlank { null }
                         )
                     } else {
@@ -274,16 +283,15 @@ fun StartParkScreen (
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
+
                     AnimatedVisibility(visible = selectedType == ParkingType.TICKET, enter = fadeIn(), exit = fadeOut()) {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            OutlinedTextField(
-                                value = fixedCost,
-                                onValueChange = { fixedCost = it },
-                                label = { Text("Costo ticket (€)") },
-                                shape = RoundedCornerShape(14.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
+                        OutlinedTextField(
+                            value = fixedCost,
+                            onValueChange = { fixedCost = it },
+                            label = { Text("Costo ticket (€)") },
+                            shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 } else {
                     selectedSavedLocation?.let { location ->
@@ -291,6 +299,22 @@ fun StartParkScreen (
                     }
                 }
 
+                AnimatedVisibility(visible = effectiveType == ParkingType.TICKET, enter = fadeIn(), exit = fadeOut()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        ExpiryTimePicker(expiryTime = expiryTime, onExpirySelected = { expiryTime = it })
+
+                        Text("Avvisami prima della scadenza", style = MaterialTheme.typography.labelLarge)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(1, 10, 15, 30).forEach { minutes ->
+                                FilterChip(
+                                    selected = warningMinutesBefore == minutes,
+                                    onClick = { warningMinutesBefore = minutes },
+                                    label = { Text("$minutes min") }
+                                )
+                            }
+                        }
+                    }
+                }
 
                 OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("Nota (opzionale)") }, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth())
 
@@ -427,17 +451,45 @@ private fun ActiveSessionMap(display: ActiveSessionDisplay) {
 // Mostra le informazioni in tempo reale di un parcheggio attivo (tempo e costo).
 @Composable
 private fun ParkingTrackerInfo(display: ActiveSessionDisplay) {
+    val isTicket = display.session.type == ParkingType.TICKET
+    val remaining = display.remainingMillis
+
     Column(
         modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // Tempo trascorso
-        Text(
-            text = formatElapsedDuration(display.elapsedMillis),
-            style = MaterialTheme.typography.displayLarge,
-            fontWeight = FontWeight.Bold
-        )
+        if (isTicket && remaining != null) {
+            val isExpired = remaining <= 0
+            Text(
+                text =
+                    if (isExpired)
+                        "Tempo scaduto"
+                    else
+                        "Tempo rimanente: ${formatElapsedDuration(remaining)}",
+                style = MaterialTheme.typography.displayLarge,
+                fontWeight = FontWeight.Bold,
+                color = if (isExpired) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+            )
+
+            Text(
+                text =
+                    if (isExpired)
+                        "Il ticket e' scaduto"
+                    else
+                        "Tempo rimanente",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold
+            )
+        } else {
+            // Tempo trascorso
+            Text(
+                text = formatElapsedDuration(display.elapsedMillis),
+                style = MaterialTheme.typography.displayLarge,
+                fontWeight = FontWeight.Bold
+            )
+
+        }
         // Costo accumulato finora
         display.currentCost?.let { cost ->
             Text(
@@ -531,5 +583,33 @@ private fun SavedLocationCostSumamry(location: SavedLocation) {
                 ParkingType.FREE -> Text("Parcheggio gratuito", style = MaterialTheme.typography.bodyMedium)
             }
         }
+    }
+}
+
+@Composable
+private fun ExpiryTimePicker(expiryTime: Long?, onExpirySelected: (Long) -> Unit) {
+    val context = LocalContext.current
+    val calendar = remember { Calendar.getInstance() }
+
+    TextButton(onClick = {
+        DatePickerDialog(context, { _, year, month, day ->
+            calendar.set(year, month, day)
+            TimePickerDialog(context, { _, hour, minute ->
+                calendar.set(Calendar.HOUR_OF_DAY, hour)
+                calendar.set(Calendar.MINUTE, minute)
+                calendar.set(Calendar.SECOND, 0)
+                onExpirySelected(calendar.timeInMillis)
+            }, calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), true).show()
+        }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)).show()
+    }) {
+        val label = expiryTime?.let {
+            SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.ITALY).format(it)
+        } ?: "Imposta scadenza"
+        Text(
+            if (expiryTime != null)
+                "Scade il: $label"
+            else
+                label
+        )
     }
 }

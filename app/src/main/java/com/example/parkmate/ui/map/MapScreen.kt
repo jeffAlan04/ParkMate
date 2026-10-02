@@ -25,10 +25,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -57,6 +61,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+private enum class MapMode {SAVED_LOCATIONS, ACTIVE_SESSIONS}
 private val DEFAULT_POSITION = LatLng(44.4949, 11.3426)
 
 private sealed class LocationFormMode {
@@ -76,44 +81,95 @@ fun MapScreen(
 
     var selectedSession by remember { mutableStateOf<ActiveSessionDisplay?>(null) }
     var formMode by remember { mutableStateOf<LocationFormMode?>(null) }
+    var mapMode by remember { mutableStateOf(MapMode.SAVED_LOCATIONS) }
 
-    val initialPosition = activeSessions.firstOrNull()?.let { LatLng(it.session.latitude, it.session.longitude) } ?: DEFAULT_POSITION
+    val initialPosition = when (mapMode) {
+        MapMode.ACTIVE_SESSIONS -> activeSessions.firstOrNull()?.let { LatLng(it.session.latitude, it.session.longitude) } ?: DEFAULT_POSITION
+        MapMode.SAVED_LOCATIONS -> savedLocation.firstOrNull()?.let { LatLng(it.latitude, it.longitude) }
+    } ?: DEFAULT_POSITION
 
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(initialPosition, 14f)
     }
 
-    if (formMode == null) {
-        GoogleMap(
-            modifier = Modifier.fillMaxSize(),
-            cameraPositionState = cameraPositionState,
-            onMapLongClick = { latLng ->
-                formMode = LocationFormMode.Add(latLng.latitude, latLng.longitude)
-            }
-        ) {
-            activeSessions.forEach { display ->
-                Marker(
-                    state = MarkerState(position = LatLng(display.session.latitude, display.session.longitude)),
-                    title = display.vehicleName,
-                    icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE),
-                    onClick = {
-                        selectedSession = display
-                        true
-                    }
-                )
-            }
+    LaunchedEffect(mapMode) {
+        cameraPositionState.position = CameraPosition.fromLatLngZoom(initialPosition, 14f)
+    }
 
-            savedLocation.forEach { location ->
-                Marker(
-                    state = MarkerState(position = LatLng(location.latitude, location.longitude)),
-                    title = location.name,
-                    snippet = location.parkingType.name,
-                    icon = BitmapDescriptorFactory.defaultMarker(markerHueFor(location.parkingType)),
-                    onClick = {
-                        formMode = LocationFormMode.Edit(location)
-                        true
+    Column(modifier = Modifier.fillMaxSize()) {
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            SegmentedButton(
+                selected = mapMode == MapMode.SAVED_LOCATIONS,
+                onClick = { mapMode = MapMode.SAVED_LOCATIONS },
+                shape = SegmentedButtonDefaults.itemShape(0, 2)
+            ) { Text("Luoghi salvati") }
+
+            SegmentedButton(
+                selected = mapMode == MapMode.ACTIVE_SESSIONS,
+                onClick = { mapMode = MapMode.ACTIVE_SESSIONS },
+                shape = SegmentedButtonDefaults.itemShape(1, 2)
+            ) { Text("Sessioni attive") }
+        }
+
+        Text(
+            text =
+                if (mapMode == MapMode.SAVED_LOCATIONS)
+                    "Luoghi salvati"
+                else
+                    "Parcheggi attivi",
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+        )
+        if (formMode == null) {
+            GoogleMap(
+                modifier = Modifier.fillMaxSize(),
+                cameraPositionState = cameraPositionState,
+                onMapLongClick = { latLng ->
+                    if (mapMode == MapMode.SAVED_LOCATIONS) {
+                        formMode = LocationFormMode.Add(latLng.latitude, latLng.longitude)
                     }
-                )
+                }
+            ) {
+                when (mapMode) {
+                    MapMode.ACTIVE_SESSIONS -> {
+                        activeSessions.forEach { display ->
+                            Marker(
+                                state = MarkerState(
+                                    position = LatLng(
+                                        display.session.latitude,
+                                        display.session.longitude
+                                    )
+                                ),
+                                title = display.vehicleName,
+                                icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE),
+                                onClick = {
+                                    selectedSession = display
+                                    true
+                                }
+                            )
+                        }
+                    }
+
+                    MapMode.SAVED_LOCATIONS -> {
+                        savedLocation.forEach { location ->
+                            Marker(
+                                state = MarkerState(
+                                    position = LatLng(
+                                        location.latitude,
+                                        location.longitude
+                                    )
+                                ),
+                                title = location.parkingType.name,
+                                icon = BitmapDescriptorFactory.defaultMarker(markerHueFor(location.parkingType)),
+                                onClick = {
+                                    formMode = LocationFormMode.Edit(location)
+                                    true
+                                }
+                            )
+                        }
+                    }
+                }
             }
         }
     }

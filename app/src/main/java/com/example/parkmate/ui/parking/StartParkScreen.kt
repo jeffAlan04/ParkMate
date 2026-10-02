@@ -366,7 +366,6 @@ fun StartParkScreen (
                 }
             } else {
                 // Se c'è già una sessione attiva, mostra i dettagli del timer e la mappa del parcheggio esistente
-                ActiveSessionMap(display = activeSessionForSelectedVechicle)
                 ParkingTrackerInfo(display = activeSessionForSelectedVechicle)
             }
 
@@ -428,23 +427,6 @@ private fun LocationAdjustmentMap(
                 Text("Ripristina posizione")
             }
         }
-    }
-}
-
-// Visualizza la posizione di un parcheggio attivo su una mappa
-@Composable
-private fun ActiveSessionMap(display: ActiveSessionDisplay) {
-    val markerPosition = LatLng(display.session.latitude, display.session.longitude)
-
-    val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(markerPosition, 16f)
-    }
-
-    GoogleMap(
-        modifier = Modifier.fillMaxWidth().height(200.dp),
-        cameraPositionState = cameraPositionState
-    ) {
-        Marker(state = MarkerState(position = markerPosition))
     }
 }
 

@@ -1,5 +1,9 @@
 package com.example.parkmate.ui.map
 
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -28,6 +32,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -40,8 +46,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.parkmate.data.local.entity.ParkingType
 import com.example.parkmate.data.local.entity.SavedLocation
@@ -53,6 +62,7 @@ import com.example.parkmate.ui.parking.ParkingViewModelFactory
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.Circle
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
@@ -60,6 +70,7 @@ import com.google.maps.android.compose.Marker
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import android.Manifest
 
 private enum class MapMode {SAVED_LOCATIONS, ACTIVE_SESSIONS}
 private val DEFAULT_POSITION = LatLng(44.4949, 11.3426)
@@ -167,6 +178,16 @@ fun MapScreen(
                                     true
                                 }
                             )
+
+                            if (location.geofenceEnabled) {
+                                Circle(
+                                    center = LatLng(location.latitude, location.longitude),
+                                    radius = location.geofenceRadius.toDouble(),
+                                    strokeColor = Color(0xFF2196F3),
+                                    strokeWidth = 2f,
+                                    fillColor = Color(0x332196F3)
+                                )
+                            }
                         }
                     }
                 }
@@ -189,10 +210,10 @@ fun MapScreen(
         LocationFormSheet(
             mode = mode,
             onDismiss = { formMode = null },
-            onSave = { name, lat, lng, type, hourlyRate, fixedCost ->
+            onSave = { name, lat, lng, type, hourlyRate, fixedCost, geofenceEnabled, geofenceRadius ->
                 when (mode) {
-                    is LocationFormMode.Add -> locationViewModel.addLocation(name, lat, lng, type, hourlyRate, fixedCost)
-                    is LocationFormMode.Edit -> locationViewModel.updateLocation(mode.location.id, name, lat, lng, type, hourlyRate, fixedCost)
+                    is LocationFormMode.Add -> locationViewModel.addLocation(name, lat, lng, type, hourlyRate, fixedCost, geofenceEnabled, geofenceRadius)
+                    is LocationFormMode.Edit -> locationViewModel.updateLocation(mode.location.id, name, lat, lng, type, hourlyRate, fixedCost, geofenceEnabled, geofenceRadius)
                 }
                 formMode = null
             },
@@ -217,7 +238,7 @@ private fun markerHueFor(type: ParkingType): Float = when (type) {
 private fun LocationFormSheet(
     mode: LocationFormMode,
     onDismiss: () -> Unit,
-    onSave: (name: String, lat: Double, lng: Double, type: ParkingType, hourlyRate: Double?, fixedCost: Double?) -> Unit,
+    onSave: (name: String, lat: Double, lng: Double, type: ParkingType, hourlyRate: Double?, fixedCost: Double?, geofenceEnabled: Boolean, geofenceRadius: Float) -> Unit,
     onDelete: (() -> Unit)?
 ) {
     val initialLatitude = when (mode) {
@@ -237,6 +258,13 @@ private fun LocationFormSheet(
 
     var hourlyRateText by remember { mutableStateOf((mode as? LocationFormMode.Edit)?.location?.hourlyRate?.toString() ?: "") }
     var fixedCostText by remember { mutableStateOf((mode as? LocationFormMode.Edit)?.location?.fixedCost?.toString() ?: "") }
+
+    var geofenceEnabled by remember { mutableStateOf((mode as? LocationFormMode.Edit)?.location?.geofenceEnabled ?: false) }
+    var geofenceRadius by remember { mutableStateOf((mode as? LocationFormMode.Edit)?.location?.geofenceRadius ?: 100f) }
+
+    val requestGeofencePermission = rememberGeofencePermissionRequester { granted ->
+        geofenceEnabled = granted
+    }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -342,13 +370,38 @@ private fun LocationFormSheet(
                 )
             }
 
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Avvisami quando entro/esco", modifier = Modifier.weight(1f))
+                Switch(
+                    checked = geofenceEnabled,
+                    onCheckedChange = { wantsOn ->
+                        if (wantsOn)
+                            requestGeofencePermission()
+                        else
+                            geofenceEnabled = false
+                    }
+                )
+            }
+
+            AnimatedVisibility(visible = geofenceEnabled, enter = fadeIn(), exit = fadeOut()) {
+                Column {
+                    Text("Raggio: ${geofenceRadius.toInt()} m", style = MaterialTheme.typography.labelLarge)
+                    Slider(
+                        value = geofenceRadius,
+                        onValueChange = { geofenceRadius = it },
+                        valueRange = 100f..500f,
+                        steps = 7,
+                    )
+                }
+            }
+
             val canSave = name.isNotBlank() && latitudeText.toDoubleOrNull() != null && longitudeText.toDoubleOrNull() != null
 
             Button(
                 onClick = {
                     val lat = latitudeText.toDoubleOrNull() ?: return@Button
                     val lng = longitudeText.toDoubleOrNull() ?: return@Button
-                    onSave(name, lat, lng, selectedType, hourlyRateText.toDoubleOrNull(), fixedCostText.toDoubleOrNull())
+                    onSave(name, lat, lng, selectedType, hourlyRateText.toDoubleOrNull(), fixedCostText.toDoubleOrNull(), geofenceEnabled, geofenceRadius)
                 },
                 enabled = canSave,
                 shape = RoundedCornerShape(14.dp),
@@ -441,5 +494,38 @@ private fun SessionDetailContent(display: ActiveSessionDisplay) {
         }
 
         Spacer(modifier = Modifier.height(20.dp))
+    }
+}
+
+@Composable
+private fun rememberGeofencePermissionRequester(onResult: (Boolean) -> Unit): () -> Unit {
+    val context = LocalContext.current
+    val fine = Manifest.permission.ACCESS_FINE_LOCATION
+    val background = Manifest.permission.ACCESS_BACKGROUND_LOCATION
+
+    fun isGranted(permission: String) = ContextCompat.checkSelfPermission(context, permission) ==
+        PackageManager.PERMISSION_GRANTED
+
+    val backgroundLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { _ -> onResult(isGranted(background)) }
+
+    val fineLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        when{
+            !granted -> onResult(false)
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> backgroundLauncher.launch(background)
+
+            else -> onResult(true)
+        }
+    }
+
+    return {
+        when {
+            !isGranted(fine) -> fineLauncher.launch(fine)
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !isGranted(background) -> backgroundLauncher.launch(background)
+            else -> onResult(true)
+        }
     }
 }

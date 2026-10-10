@@ -5,13 +5,14 @@ import androidx.lifecycle.viewModelScope
 import com.example.parkmate.data.local.entity.ParkingType
 import com.example.parkmate.data.local.entity.SavedLocation
 import com.example.parkmate.data.repository.LocationRepository
+import com.example.parkmate.geofence.GeofenceManager
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 //ViewModel che gestisce la logica dei luoghi salvati dall'utente.
-class LocationViewModel(private val repository: LocationRepository) : ViewModel() {
+class LocationViewModel(private val repository: LocationRepository, private val geofenceManager: GeofenceManager) : ViewModel() {
 
     // Espone la lista di tutti i luoghi salvati come StateFlow.
     val locations: StateFlow<List<SavedLocation>> = repository.getAllLocations()
@@ -22,16 +23,27 @@ class LocationViewModel(private val repository: LocationRepository) : ViewModel(
     suspend fun getLocationById(id: Long): SavedLocation? = repository.getLocationById(id)
 
     // Aggiunge un nuovo luogo salvandolo nel database
-    fun addLocation(name: String, latitude: Double, longitude: Double, parkingType: ParkingType, hourlyRate: Double? = null, fixedCost: Double? = null) {
+    fun addLocation(name: String, latitude: Double, longitude: Double, parkingType: ParkingType, hourlyRate: Double? = null, fixedCost: Double? = null, geofenceEnabled: Boolean = false, geofenceRadius: Float = 100f) {
         viewModelScope.launch {
-            repository.addLocation(SavedLocation(name = name, latitude = latitude, longitude = longitude, parkingType = parkingType, hourlyRate = hourlyRate, fixedCost = fixedCost))
+            val location = SavedLocation(name = name, latitude = latitude, longitude = longitude, parkingType = parkingType, hourlyRate = hourlyRate, fixedCost = fixedCost, geofenceEnabled = geofenceEnabled, geofenceRadius = geofenceRadius)
+            val newId = repository.addLocation(location)
+
+            if (geofenceEnabled)
+                geofenceManager.register(location.copy(id = newId))
+
         }
     }
 
     // Aggiorna le informazioni di un luogo già esistente
-    fun updateLocation(id: Long, name: String, latitude: Double, longitude: Double, parkingType: ParkingType, hourlyRate: Double? = null, fixedCost: Double? = null) {
+    fun updateLocation(id: Long, name: String, latitude: Double, longitude: Double, parkingType: ParkingType, hourlyRate: Double? = null, fixedCost: Double? = null, geofenceEnabled: Boolean = false, geofenceRadius: Float = 100f) {
         viewModelScope.launch {
-            repository.updateLocation(SavedLocation(id = id, name = name, latitude = latitude, longitude = longitude, parkingType = parkingType, hourlyRate = hourlyRate, fixedCost = fixedCost))
+            val location = SavedLocation(id = id, name = name, latitude = latitude, longitude = longitude, parkingType = parkingType, hourlyRate = hourlyRate, fixedCost = fixedCost, geofenceEnabled = geofenceEnabled, geofenceRadius = geofenceRadius)
+            repository.updateLocation(location)
+
+            if (geofenceEnabled)
+                geofenceManager.register(location)
+            else
+                geofenceManager.unregister(id)
         }
     }
 
@@ -39,6 +51,7 @@ class LocationViewModel(private val repository: LocationRepository) : ViewModel(
     fun deleteLocation(location: SavedLocation) {
         viewModelScope.launch {
             repository.deleteLocation(location)
+            geofenceManager.unregister(location.id)
         }
     }
 }

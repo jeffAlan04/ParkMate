@@ -16,7 +16,7 @@ import com.example.parkmate.ui.visualization.DataVisualizationScreen
 
 // Navigazione fra le pagine
 @Composable
-fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
+fun NavGraph(navController: NavHostController, startLocationId: Long? = null, modifier: Modifier = Modifier) {
 
     // Destinazioni raggiungibili
     NavHost(
@@ -49,7 +49,7 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
 
         // Form per avviare una nuova sessione di parcheggio
         composable<Routes.StartPark> {
-            StartParkScreen()
+            StartParkScreen(initialLocationId = startLocationId)
         }
 
         composable<Routes.Map> {

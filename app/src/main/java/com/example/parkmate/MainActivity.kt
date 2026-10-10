@@ -36,26 +36,48 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import android.Manifest
+import android.content.Intent
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 
 class MainActivity : ComponentActivity() {
+    private var startLocationId by mutableStateOf<Long?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        if (savedInstanceState == null) readStartLocation(intent)
         setContent {
             ParkMateTheme {
-                ParkMateApp()
+                ParkMateApp(startLocationId = startLocationId)
             }
         }
     }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        readStartLocation(intent)
+    }
+
+    private fun readStartLocation(intent: Intent) {
+        startLocationId = intent.getLongExtra(EXTRA_START_LOCATION_ID, -1).takeIf { it != -1L }
+    }
+
+    companion object { const val EXTRA_START_LOCATION_ID = "startLocationId" }
 }
 
 private data class BottonNavItem(val route: Routes, val label: String, val icon: ImageVector)
 @Composable
-fun ParkMateApp() {
+fun ParkMateApp(startLocationId: Long? = null) {
     RequestNotificationPermission()
 
     val navController = rememberNavController()
 
+    LaunchedEffect(startLocationId) {
+        if (startLocationId != null)
+            navController.navigate(Routes.StartPark)
+    }
     val bottomNavItems = listOf(
         BottonNavItem(Routes.VehiclesList, "Veicoli", Icons.Default.DirectionsCar),
         BottonNavItem(Routes.StartPark, "Parcheggi", Icons.Default.LocalParking),
@@ -95,6 +117,7 @@ fun ParkMateApp() {
     ) { innerPadding ->
         NavGraph(
             navController = navController,
+            startLocationId = startLocationId,
             modifier = Modifier.padding(innerPadding))
     }
 }

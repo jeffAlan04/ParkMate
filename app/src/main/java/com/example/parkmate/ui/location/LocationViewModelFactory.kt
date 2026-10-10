@@ -14,6 +14,6 @@ object LocationViewModelFactory: ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
 
         // Crea il ViewModel fornendo le repository necessarie
-        return LocationViewModel(app.container.locationRepository) as T
+        return LocationViewModel(app.container.locationRepository, app.container.geofenceManager) as T
     }
 }

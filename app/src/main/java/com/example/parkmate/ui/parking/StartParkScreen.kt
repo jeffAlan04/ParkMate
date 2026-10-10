@@ -67,6 +67,7 @@ private enum class LocationSource { CURRENT, SAVED }
 @Composable
 fun StartParkScreen (
     viewModel: ParkingViewModel = viewModel(factory = ParkingViewModelFactory),
+    initialLocationId: Long? = null,
     onParkingStarted: () -> Unit = {} // Callback richiamata dopo il salvataggio
 ) {
     val vehicles by viewModel.vehicles.collectAsState()
@@ -121,6 +122,8 @@ fun StartParkScreen (
         activeSessions.find { it.session.vehicleId == vehicle.id }
     }
 
+    var handledLocationId by remember { mutableStateOf<Long?>(null) }
+
     // Aggiorna le coordinate base ogni vola che cambia la sorgente o i permessi
     LaunchedEffect(locationSource, selectedSavedLocation, permissionStatus) {
         manualCoordinates = null
@@ -137,6 +140,21 @@ fun StartParkScreen (
                 }
             }
         }
+    }
+
+    LaunchedEffect(initialLocationId, savedLocations) {
+        if (initialLocationId != null && initialLocationId != handledLocationId) {
+            savedLocations.find { it.id == initialLocationId }?.let { location ->
+                selectedSavedLocation = location
+                locationSource = LocationSource.SAVED
+                handledLocationId = initialLocationId
+            }
+        }
+    }
+
+    LaunchedEffect(vehicles) {
+        if (selectedVehicle == null && vehicles.size == 1)
+            selectedVehicle = vehicles.first()
     }
 
     // Prova a salvare la sessione nel database

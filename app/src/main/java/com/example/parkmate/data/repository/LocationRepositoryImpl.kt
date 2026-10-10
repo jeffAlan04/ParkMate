@@ -11,9 +11,7 @@ class LocationRepositoryImpl(private val dao: SavedLocationDao) : LocationReposi
     override suspend fun getLocationById(locationId: Long): SavedLocation? = dao.getById(locationId)
 
     // Aggiunge una posizione al DB
-    override suspend fun addLocation(location: SavedLocation) {
-        dao.insert(location)
-    }
+    override suspend fun addLocation(location: SavedLocation): Long = dao.insert(location)
 
     // Aggiorna una posizione al DB
     override suspend fun updateLocation(location: SavedLocation) {

@@ -11,5 +11,7 @@ data class SavedLocation(
     val longitude: Double,
     val parkingType: ParkingType,
     val hourlyRate: Double? = null,
-    val fixedCost: Double? = null
+    val fixedCost: Double? = null,
+    val geofenceEnabled: Boolean = false,
+    val geofenceRadius: Float = 100f
 )

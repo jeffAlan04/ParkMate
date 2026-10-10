@@ -49,6 +49,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TextButton
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
@@ -122,7 +123,25 @@ fun StartParkScreen (
         activeSessions.find { it.session.vehicleId == vehicle.id }
     }
 
+    var summaryVehicleId by remember { mutableStateOf<Long?>(null) }
+
+    val summarySession = summaryVehicleId?.let { id ->
+        activeSessions.find { it.session.vehicleId == id }
+    }
+
     var handledLocationId by remember { mutableStateOf<Long?>(null) }
+
+    fun hasActiveSession(vehicle: Vehicle) = activeSessions.any { it.session.vehicleId == vehicle.id }
+
+    fun resetForm() {
+        selectedType = ParkingType.FREE
+        hourlyRate = ""
+        fixedCost = ""
+        expiryTime = null
+        note = ""
+        manualCoordinates = null
+        showMapAdjustment = false
+    }
 
     // Aggiorna le coordinate base ogni vola che cambia la sorgente o i permessi
     LaunchedEffect(locationSource, selectedSavedLocation, permissionStatus) {
@@ -160,6 +179,8 @@ fun StartParkScreen (
     // Prova a salvare la sessione nel database
     fun attemptStartParking(scope: CoroutineScope) {
         val vehicle = selectedVehicle ?: return
+
+        summaryVehicleId = vehicle.id
 
         // Caso in cui la posizione è regolata manualmente sulla mappa
         manualCoordinates?.let { (lat, lng) ->
@@ -240,7 +261,6 @@ fun StartParkScreen (
                 }
             }
         }
-
     }
 
     // Fa partire il parcheggio automaticamente appena il permesso viene concesso
@@ -263,20 +283,39 @@ fun StartParkScreen (
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // Seleziona veicolo
-            Text("Veicolo", style = MaterialTheme.typography.labelLarge)
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(vehicles) { vehicle ->
-                    VehiclePickCard(
-                        vehicle = vehicle,
-                        selected = vehicle.id == selectedVehicle?.id,
-                        onClick = { selectedVehicle = vehicle }
-                    )
+            if (summarySession != null) {
+                ActiveSessionSummary(
+                    display = summarySession,
+                    allSessions = activeSessions,
+                    canStartNew = vehicles.any { !hasActiveSession(it) },
+                    onSelectSession = { vehicleId -> summaryVehicleId = vehicleId },
+                    onEndParking = {
+                        viewModel.endParking(summarySession.session)
+                        summaryVehicleId = null
+                    },
+                    onNewParking = {
+                        summaryVehicleId = null
+                        selectedVehicle = vehicles.firstOrNull { !hasActiveSession(it) }
+                        resetForm()
+                    }
+                )
+            } else {
+                // Seleziona veicolo
+                Text("Veicolo", style = MaterialTheme.typography.labelLarge)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(vehicles) { vehicle ->
+                        VehiclePickCard(
+                            vehicle = vehicle,
+                            selected = vehicle.id == selectedVehicle?.id,
+                            onClick = {
+                                selectedVehicle = vehicle
+                                if (hasActiveSession(vehicle)) summaryVehicleId = vehicle.id
+                            }
+                        )
+                    }
                 }
-            }
-            
-            // Se non c'è nessuna sessione attiva per l'auto scelta, mostra il form
-            if (activeSessionForSelectedVechicle == null) {
+
+                // Form del parcheggio
 
                 if (locationSource == LocationSource.CURRENT) {
                     // Seleziona tipo di parcheggio
@@ -382,31 +421,30 @@ fun StartParkScreen (
                         )
                     }
                 }
-            } else {
-                // Se c'è già una sessione attiva, mostra i dettagli del timer e la mappa del parcheggio esistente
-                ParkingTrackerInfo(display = activeSessionForSelectedVechicle)
-            }
 
-            // Bottone di avvio/termine
-            val canSave = selectedVehicle != null && (locationSource == LocationSource.CURRENT || selectedSavedLocation != null)
+                if (activeSessionForSelectedVechicle != null) {
+                    Text(
+                        "Questo veicolo ha già un parcheggio in corso",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    TextButton(onClick = { summaryVehicleId = selectedVehicle?.id }) {
+                        Text("Vedi parcheggio in corso")
+                    }
+                }
 
-            Button(
-                onClick = {
-                    if (activeSessionForSelectedVechicle != null) {
-                        viewModel.endParking(activeSessionForSelectedVechicle.session)
-                    } else {
-                        attemptStartParking(coroutineScope) }
-                    },
-                enabled = activeSessionForSelectedVechicle != null || canSave,
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier.fillMaxWidth().height(52.dp)
-            ) {
-                Text(
-                    if (activeSessionForSelectedVechicle != null)
-                        "Termina parcheggio"
-                    else
-                        "Avvia parcheggio",
-                    style = MaterialTheme.typography.titleMedium)
+                // Bottone di avvio/termine
+                val canSave = selectedVehicle != null && activeSessionForSelectedVechicle == null && (locationSource == LocationSource.CURRENT || selectedSavedLocation != null)
+
+                Button(
+                    onClick = { attemptStartParking(coroutineScope) },
+                    enabled =  canSave,
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth().height(52.dp)
+                ) {
+                    Text("Avvia parcheggio", style = MaterialTheme.typography.titleMedium)
+                }
+
             }
 
         }
@@ -461,25 +499,27 @@ private fun ParkingTrackerInfo(display: ActiveSessionDisplay) {
     ) {
         if (isTicket && remaining != null) {
             val isExpired = remaining <= 0
+            val color =
+                if (isExpired)
+                    MaterialTheme.colorScheme.error
+                else
+                    MaterialTheme.colorScheme.onSurface
             Text(
                 text =
                     if (isExpired)
-                        "Tempo scaduto"
-                    else
-                        "Tempo rimanente: ${formatElapsedDuration(remaining)}",
-                style = MaterialTheme.typography.displayLarge,
-                fontWeight = FontWeight.Bold,
-                color = if (isExpired) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-            )
-
-            Text(
-                text =
-                    if (isExpired)
-                        "Il ticket e' scaduto"
+                        "Ticket scaduto"
                     else
                         "Tempo rimanente",
                 style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                color = color
+            )
+
+            Text(
+                text = formatElapsedDuration(remaining.coerceAtLeast(0)),
+                style = MaterialTheme.typography.displayLarge,
+                fontWeight = FontWeight.Bold,
+                color = color
             )
         } else {
             // Tempo trascorso
@@ -488,7 +528,6 @@ private fun ParkingTrackerInfo(display: ActiveSessionDisplay) {
                 style = MaterialTheme.typography.displayLarge,
                 fontWeight = FontWeight.Bold
             )
-
         }
         // Costo accumulato finora
         display.currentCost?.let { cost ->
@@ -612,4 +651,88 @@ private fun ExpiryTimePicker(expiryTime: Long?, onExpirySelected: (Long) -> Unit
                 label
         )
     }
+}
+
+@Composable
+private fun ActiveSessionSummary(
+    display: ActiveSessionDisplay,
+    allSessions: List<ActiveSessionDisplay>,
+    canStartNew: Boolean,
+    onSelectSession: (Long) -> Unit,
+    onEndParking: () -> Unit,
+    onNewParking: () -> Unit
+) {
+    val session = display.session
+    val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.ITALY) }
+    val dateTimeFormat = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.ITALY) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+
+        if (allSessions.size > 1) {
+            Text("Parcheggi in corso", style = MaterialTheme.typography.labelLarge)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(allSessions, key = { it.session.id }) { other ->
+                    FilterChip(
+                        selected = other.session.vehicleId == session.vehicleId,
+                        onClick = { onSelectSession(other.session.vehicleId) },
+                        label = { Text(other.vehicleName)}
+                    )
+                }
+            }
+        }
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(display.vehicleName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("Tipo: ${parkingTypeLabel(session.type)}", style = MaterialTheme.typography.bodyLarge)
+                Text("Iniziato alle ${timeFormat.format(session.startTime)}", style = MaterialTheme.typography.bodyMedium)
+
+                if (session.type == ParkingType.TICKET) {
+                    session.expiryTime?.let { expiry ->
+                        Text("Scade il ${dateTimeFormat.format(expiry)}", style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+
+                session.note?.takeIf { it.isNotBlank() }?.let { text ->
+                    Text("Nota: $text", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
+
+        ParkingTrackerInfo(display = display)
+
+        Button(
+            onClick = onEndParking,
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier.fillMaxWidth().height(52.dp)
+        ) {
+            Text("Termina parcheggio", style = MaterialTheme.typography.titleMedium)
+        }
+
+        OutlinedButton(
+            onClick = onNewParking,
+            enabled = canStartNew,
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier.fillMaxWidth().height(52.dp)
+        ) {
+            Text("Nuovo parcheggio")
+        }
+
+        if (!canStartNew) {
+            Text(
+                "Tutti i veicoli hanno già un parcheggio in corso",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+private fun parkingTypeLabel(type: ParkingType): String = when (type) {
+    ParkingType.FREE -> "Gratuito"
+    ParkingType.HOURLY -> "A ore"
+    ParkingType.TICKET -> "Ticket"
 }

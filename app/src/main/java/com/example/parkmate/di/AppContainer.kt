@@ -9,6 +9,7 @@ import com.example.parkmate.data.repository.ParkingRepository
 import com.example.parkmate.data.repository.ParkingRepositoryImpl
 import com.example.parkmate.data.repository.VehicleRepository
 import com.example.parkmate.data.repository.VehicleRepositoryImpl
+import com.example.parkmate.geofence.GeofenceManager
 
 // Container che crea e fornisce le dipendenze necessarie
 class AppContainer(context: Context) {
@@ -30,5 +31,9 @@ class AppContainer(context: Context) {
 
     val locationRepository: LocationRepository by lazy {
         LocationRepositoryImpl(database.savedLocationDao())
+    }
+
+    val geofenceManager: GeofenceManager by lazy {
+        GeofenceManager(context)
     }
 }

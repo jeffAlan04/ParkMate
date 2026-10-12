@@ -145,13 +145,10 @@ fun MapScreen(
                 when (mapMode) {
                     MapMode.ACTIVE_SESSIONS -> {
                         activeSessions.forEach { display ->
+                            val position = LatLng(display.session.latitude, display.session.longitude)
+                            val markerState = remember(display.session.id, position) { MarkerState(position = position) }
                             Marker(
-                                state = MarkerState(
-                                    position = LatLng(
-                                        display.session.latitude,
-                                        display.session.longitude
-                                    )
-                                ),
+                                state = markerState,
                                 title = display.vehicleName,
                                 icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE),
                                 onClick = {
@@ -164,13 +161,10 @@ fun MapScreen(
 
                     MapMode.SAVED_LOCATIONS -> {
                         savedLocation.forEach { location ->
+                            val position = LatLng(location.latitude, location.longitude)
+                            val markerState = remember(location.id, position) { MarkerState(position = position) }
                             Marker(
-                                state = MarkerState(
-                                    position = LatLng(
-                                        location.latitude,
-                                        location.longitude
-                                    )
-                                ),
+                                state = markerState,
                                 title = location.parkingType.name,
                                 icon = BitmapDescriptorFactory.defaultMarker(markerHueFor(location.parkingType)),
                                 onClick = {
@@ -301,8 +295,9 @@ private fun LocationFormSheet(
                     longitudeText = latLng.longitude.toString()
                 }
             ) {
-                markerPosition?.let {
-                    Marker(state = MarkerState(position = it))
+                markerPosition?.let { position ->
+                    val markerState = remember(position) { MarkerState(position = position) }
+                    Marker(state = markerState)
                 }
             }
 

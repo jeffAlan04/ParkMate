@@ -49,6 +49,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TextButton
 import com.google.android.gms.maps.model.CameraPosition
@@ -60,8 +62,23 @@ import com.google.maps.android.compose.rememberCameraPositionState
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import com.example.parkmate.ui.photo.createPhotoFile
 import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.io.File
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material3.Icon
+import com.example.parkmate.ui.photo.FullScreenPhotoDialog
+import com.example.parkmate.ui.photo.PhotoThumbnail
+
 
 private enum class LocationSource { CURRENT, SAVED }
 
@@ -117,6 +134,44 @@ fun StartParkScreen (
     val (permissionStatus, requestPermission) = rememberLocationPermissionStatus()
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    var photoPath by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingPhotoPath by rememberSaveable { mutableStateOf<String?>(null) }
+    var fullScreenPhoto by remember { mutableStateOf<String?>(null) }
+
+    val takePictureLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) {
+        success -> val newPath = pendingPhotoPath
+        if (success && newPath != null) {
+            photoPath?.let { File(it).delete() }
+            photoPath = newPath
+        } else {
+            newPath?.let { File(it).delete() }
+        }
+        pendingPhotoPath = null
+    }
+
+    fun launchCamera() {
+        val file = createPhotoFile(context)
+        pendingPhotoPath = file.absolutePath
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        takePictureLauncher.launch(uri)
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        granted ->
+        if (granted)
+            launchCamera()
+        else
+            coroutineScope.launch { snackbarHostState.showSnackbar("Permesso fotocamera negato") }
+    }
+
+    fun onTakePhoto() {
+        val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        if (granted)
+            launchCamera()
+        else
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+    }
 
     // Verifica se il veicolo selezionato ha già un parcheggio in corso
     val activeSessionForSelectedVechicle = selectedVehicle?.let { vehicle ->
@@ -176,6 +231,22 @@ fun StartParkScreen (
             selectedVehicle = vehicles.first()
     }
 
+    fun startSession(vehicleId: Long, lat: Double, lng: Double) {
+        viewModel.startParking(
+            vehicleId = vehicleId,
+            type = effectiveType,
+            latitude = lat,
+            longitude = lng,
+            hourlyRate = effectiveHourlyRate,
+            fixedCost = effectiveFixedCost,
+            expiryTime = expiryTime.takeIf { effectiveType == ParkingType.TICKET },
+            warningMinutesBefore = warningMinutesBefore,
+            note = note.ifBlank { null },
+            photoPath = photoPath
+        )
+        photoPath = null
+    }
+
     // Prova a salvare la sessione nel database
     fun attemptStartParking(scope: CoroutineScope) {
         val vehicle = selectedVehicle ?: return
@@ -184,17 +255,7 @@ fun StartParkScreen (
 
         // Caso in cui la posizione è regolata manualmente sulla mappa
         manualCoordinates?.let { (lat, lng) ->
-            viewModel.startParking(
-                vehicleId = vehicle.id,
-                type = effectiveType,
-                latitude = lat,
-                longitude = lng,
-                hourlyRate = effectiveHourlyRate,
-                fixedCost = effectiveFixedCost,
-                expiryTime = expiryTime,
-                warningMinutesBefore = warningMinutesBefore,
-                note = note.ifBlank { null }
-            )
+            startSession(vehicle.id, lat, lng)
             return
         }
 
@@ -202,17 +263,7 @@ fun StartParkScreen (
         when (locationSource) {
             LocationSource.SAVED -> {
                 val location = selectedSavedLocation ?: return
-                viewModel.startParking(
-                    vehicleId = vehicle.id,
-                    type = effectiveType,
-                    latitude = location.latitude,
-                    longitude = location.longitude,
-                    hourlyRate = effectiveHourlyRate,
-                    fixedCost = effectiveFixedCost,
-                    expiryTime = expiryTime,
-                    warningMinutesBefore = warningMinutesBefore,
-                    note = note.ifBlank { null }
-                )
+                startSession(vehicle.id, location.latitude, location.longitude)
             }
 
             // Caso in cui la posizione è ricavata dal GPS attuale
@@ -225,17 +276,7 @@ fun StartParkScreen (
 
                 // Se si hanno già le coordinate, salva subito
                 baseCoordinates?.let { (lat, lng) ->
-                    viewModel.startParking(
-                        vehicleId = vehicle.id,
-                        type = effectiveType,
-                        latitude = lat,
-                        longitude = lng,
-                        hourlyRate = effectiveHourlyRate,
-                        fixedCost = effectiveFixedCost,
-                        expiryTime = expiryTime,
-                        warningMinutesBefore = warningMinutesBefore,
-                        note = note.ifBlank { null }
-                    )
+                    startSession(vehicle.id, lat, lng)
                     return
                 }
 
@@ -244,17 +285,7 @@ fun StartParkScreen (
                     val fusedClient = LocationServices.getFusedLocationProviderClient(context)
                     val coordinates = LocationProvider(fusedClient).getCurrentLocation()
                     if (coordinates != null) {
-                        viewModel.startParking(
-                            vehicleId = vehicle.id,
-                            type = selectedType,
-                            latitude = coordinates.latitude,
-                            longitude = coordinates.longitude,
-                            hourlyRate = hourlyRate.toDoubleOrNull(),
-                            fixedCost = fixedCost.toDoubleOrNull(),
-                            expiryTime = expiryTime,
-                            warningMinutesBefore = warningMinutesBefore,
-                            note = note.ifBlank { null }
-                        )
+                        startSession(vehicle.id, coordinates.latitude, coordinates.longitude)
                     } else {
                         snackbarHostState.showSnackbar("Impossibile ottenere posizione")
                     }
@@ -316,7 +347,6 @@ fun StartParkScreen (
                 }
 
                 // Form del parcheggio
-
                 if (locationSource == LocationSource.CURRENT) {
                     // Seleziona tipo di parcheggio
                     Text("Tipo di parcheggio", style = MaterialTheme.typography.labelLarge)
@@ -360,6 +390,20 @@ fun StartParkScreen (
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         ExpiryTimePicker(expiryTime = expiryTime, onExpirySelected = { expiryTime = it })
 
+                        val expiry = expiryTime
+                        if (expiry == null) {
+                            Text(
+                                "Imposta la scadenza per avviare il parcheggio",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        } else if (expiry <= System.currentTimeMillis()) {
+                            Text(
+                                "La scadenza deve essere successiva all'ora attuale",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
                         Text("Avvisami prima della scadenza", style = MaterialTheme.typography.labelLarge)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             listOf(1, 10, 15, 30).forEach { minutes ->
@@ -373,7 +417,38 @@ fun StartParkScreen (
                     }
                 }
 
+                // Nota
                 OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("Nota (opzionale)") }, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth())
+
+                // Foto
+                Text("Foto (opzionale)", style = MaterialTheme.typography.labelLarge)
+                val currentPhoto = photoPath
+                if (currentPhoto == null) {
+                    OutlinedButton(
+                        onClick = { onTakePhoto() },
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.PhotoCamera, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Scatta foto")
+                    }
+                } else {
+                    PhotoThumbnail(
+                        path = currentPhoto,
+                        modifier = Modifier.fillMaxWidth().height(180.dp),
+                        onClick = { fullScreenPhoto = currentPhoto }
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = { onTakePhoto() }) {
+                            Text("Rifai foto")
+                        }
+                        TextButton(onClick = {
+                            File(currentPhoto).delete()
+                            photoPath = null
+                        }) { Text("Rimuovi") }
+                    }
+                }
 
                 // Scelta posizione
                 Text("Posizione", style = MaterialTheme.typography.labelLarge)
@@ -433,8 +508,9 @@ fun StartParkScreen (
                     }
                 }
 
+                val ticketExpiryValid = effectiveType != ParkingType.TICKET || (expiryTime?.let { it > System.currentTimeMillis() } == true)
                 // Bottone di avvio/termine
-                val canSave = selectedVehicle != null && activeSessionForSelectedVechicle == null && (locationSource == LocationSource.CURRENT || selectedSavedLocation != null)
+                val canSave = selectedVehicle != null && activeSessionForSelectedVechicle == null && ticketExpiryValid && (locationSource == LocationSource.CURRENT || selectedSavedLocation != null)
 
                 Button(
                     onClick = { attemptStartParking(coroutineScope) },
@@ -448,6 +524,9 @@ fun StartParkScreen (
             }
 
         }
+    }
+    fullScreenPhoto?.let { path ->
+        FullScreenPhotoDialog(path = path, onDismiss =  { fullScreenPhoto = null })
     }
 }
 
@@ -473,8 +552,9 @@ private fun LocationAdjustmentMap(
             cameraPositionState = cameraPositionState,
             onMapClick = { latLng -> onMapClick(latLng.latitude, latLng.longitude) }
         ) {
-            markerPosition?.let {
-                Marker(state = MarkerState(position = it))
+            markerPosition?.let { position ->
+                val markerState = remember(position) { MarkerState(position = position) }
+                Marker(state = markerState)
             }
         }
 
@@ -698,6 +778,17 @@ private fun ActiveSessionSummary(
 
                 session.note?.takeIf { it.isNotBlank() }?.let { text ->
                     Text("Nota: $text", style = MaterialTheme.typography.bodyMedium)
+                }
+                session.photoPath?.let { path ->
+                    var showPhoto by remember { mutableStateOf(false) }
+                    PhotoThumbnail(
+                        path = path,
+                        modifier = Modifier.fillMaxWidth().height(160.dp),
+                        onClick = { showPhoto = true }
+                    )
+                    if (showPhoto) {
+                        FullScreenPhotoDialog(path = path, onDismiss = { showPhoto = false })
+                    }
                 }
             }
         }

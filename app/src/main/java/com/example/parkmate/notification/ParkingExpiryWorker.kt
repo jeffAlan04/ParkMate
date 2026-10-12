@@ -11,6 +11,7 @@ import androidx.core.content.ContextCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import android.Manifest
+import android.app.NotificationChannel
 
 class ParkingExpiryWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params){
 
@@ -31,15 +32,25 @@ class ParkingExpiryWorker(context: Context, params: WorkerParameters) : Coroutin
 
         val manager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val granted = ContextCompat.checkSelfPermission(
-                applicationContext,
-                Manifest.permission.POST_NOTIFICATIONS
-            ) == PackageManager.PERMISSION_GRANTED
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channelName =
+                if (isWarning)
+                    "Promemoria scadenza ticket"
+                else
+                    "Ticket scaduto"
 
-            if (!granted) {
-                return
-            }
+            val channel = NotificationChannel(
+                channelId,
+                channelName,
+                NotificationManager.IMPORTANCE_HIGH
+            )
+            manager.createNotificationChannel(channel)
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(applicationContext, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
         }
 
         val title =

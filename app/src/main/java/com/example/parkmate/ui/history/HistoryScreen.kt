@@ -33,6 +33,8 @@ import com.example.parkmate.data.local.entity.ParkingType
 import java.text.SimpleDateFormat
 import java.util.Locale
 import androidx.compose.foundation.lazy.items
+import com.example.parkmate.ui.photo.FullScreenPhotoDialog
+import com.example.parkmate.ui.photo.PhotoThumbnail
 
 private enum class FilterCategory(val label: String) {
     NONE("Nessuno"), VEHICLE("Veicolo"), TYPE("Tipo"), PERIOD("Periodo")
@@ -141,6 +143,18 @@ private fun HistoryEntryCard(entry: HistoryEnter) {
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.primary
             )
+
+            entry.session.photoPath?.let { path ->
+                var showPhoto by remember { mutableStateOf(false) }
+                PhotoThumbnail(
+                    path = path,
+                    modifier = Modifier.fillMaxWidth().height(140.dp).padding(top = 8.dp),
+                    onClick = { showPhoto = true }
+                )
+                if (showPhoto) {
+                    FullScreenPhotoDialog(path = path, onDismiss = { showPhoto = false })
+                }
+            }
         }
     }
 }

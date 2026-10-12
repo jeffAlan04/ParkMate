@@ -64,7 +64,8 @@ class ParkingViewModel(
         fixedCost: Double?,
         expiryTime: Long?,
         warningMinutesBefore: Int?,
-        note: String?
+        note: String?,
+        photoPath: String?
     ) {
         // Esegue l'operazione nel viewModelScope per non bloccare l'UI
         viewModelScope.launch {
@@ -80,7 +81,8 @@ class ParkingViewModel(
                     hourlyRate = hourlyRate,
                     fixedCost = fixedCost,
                     expiryTime = expiryTime,
-                    note = note
+                    note = note,
+                    photoPath = photoPath
                 )
             )
 

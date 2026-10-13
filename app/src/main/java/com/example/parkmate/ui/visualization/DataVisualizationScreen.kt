@@ -57,7 +57,7 @@ fun DataVisualizationScreen(
     val totalCost by viewModel.totalCost.collectAsState()
     val countByType by viewModel.countByType.collectAsState()
 
-    val totalCount = countByType.sumOf { it.count }.toInt()
+    val totalCount = countByType.sumOf { it.count }
 
     Column(
         modifier = Modifier

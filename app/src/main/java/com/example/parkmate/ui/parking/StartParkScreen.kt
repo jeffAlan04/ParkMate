@@ -75,6 +75,7 @@ import android.location.Location
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.imePadding
@@ -95,6 +96,7 @@ import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.ui.draw.clip
@@ -112,6 +114,7 @@ import com.example.parkmate.ui.vehicles.icon
 
 private enum class LocationSource { CURRENT, SAVED }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StartParkScreen (
     viewModel: ParkingViewModel = viewModel(factory = ParkingViewModelFactory),
@@ -445,14 +448,14 @@ fun StartParkScreen (
                                     selected = locationSource == LocationSource.CURRENT,
                                     onClick = { locationSource = LocationSource.CURRENT },
                                     shape = SegmentedButtonDefaults.itemShape(0, 2)
-                                )  { Text("Posizione Attuale") }
+                                )  { Text("Posizione Attuale", maxLines = 1) }
 
                                 // Salvata
                                 SegmentedButton(
                                     selected = locationSource == LocationSource.SAVED,
                                     onClick = { locationSource = LocationSource.SAVED },
                                     shape = SegmentedButtonDefaults.itemShape(1, 2)
-                                ) { Text("Luogo Salvato") }
+                                ) { Text("Luogo Salvato", maxLines = 1) }
                             }
                             // Pulsante per mostrare la mappa e regolare la posizione GPS
                             if (locationSource == LocationSource.CURRENT) {
@@ -583,7 +586,10 @@ fun StartParkScreen (
                                     style = MaterialTheme.typography.labelLarge,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                                    verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+                                ) {
                                     listOf(1, 10, 15, 30).forEach { minutes ->
                                         FilterChip(
                                             selected = warningMinutesBefore == minutes,

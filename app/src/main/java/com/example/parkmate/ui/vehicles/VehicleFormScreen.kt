@@ -1,5 +1,6 @@
 package com.example.parkmate.ui.vehicles
 
+import android.R.attr.shape
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Arrangement
@@ -28,9 +29,20 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.parkmate.data.local.entity.VehicleType
 import androidx.compose.animation.fadeIn
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.InputTransformation.Companion.keyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.PedalBike
 import androidx.compose.material.icons.filled.TwoWheeler
@@ -38,27 +50,44 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.ui.Alignment
 import androidx.compose.material3.Card
+import androidx.compose.material3.CheckboxDefaults.colors
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import com.example.parkmate.ui.theme.Spacing
 import kotlinx.coroutines.launch
 
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VehicleFormScreen(
     vehicleId: Long? = null,
     viewModel: VehicleViewModel = viewModel(factory = VehicleViewModelFactory),
-    onSaved: () -> Unit = {}
+    onSaved: () -> Unit = {},
+    onBack: () -> Unit = onSaved
 ) {
 
-    // Contiene il nome del veicolo inserito dall'utente (inzialmente vuoto)
-    var name by remember { mutableStateOf("") }
-    var selectedType by remember { mutableStateOf(VehicleType.CAR) }
-    var plateNumber by remember { mutableStateOf("") }
+    val isEdit = vehicleId != null
 
-    val snackbarHostState = remember { SnackbarHostState() }
-    val coroutineScope = rememberCoroutineScope()
+    // Contiene il nome del veicolo inserito dall'utente (inzialmente vuoto)
+    var name by rememberSaveable { mutableStateOf("") }
+    var selectedType by rememberSaveable { mutableStateOf(VehicleType.CAR) }
+    var plateNumber by rememberSaveable { mutableStateOf("") }
+    var nameTouched by rememberSaveable { mutableStateOf(false) }
+    var plateTouched by rememberSaveable { mutableStateOf(false) }
+    var loaded by rememberSaveable { mutableStateOf(!isEdit) }
+
+    val hasPlate = selectedType != VehicleType.BICYCLE
+    val showNameError = nameTouched && name.isBlank()
+    val showPlateError = hasPlate && plateTouched && plateNumber.isBlank()
+
+    val canSave = name.isNotBlank() && (!hasPlate || plateNumber.isNotBlank())
 
     // Carica i dati di un veicolo esistente
     LaunchedEffect(vehicleId) {
@@ -68,100 +97,175 @@ fun VehicleFormScreen(
                 selectedType = existing.type
                 plateNumber = existing.plateNumber ?: ""
             }
+            loaded = true
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        if (vehicleId != null)
-                            "Modifica veicolo"
-                        else
-                            "Nuovo veicolo",
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { innerPadding ->
-        Column(modifier = Modifier.fillMaxSize().padding(innerPadding).padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)) {
+    fun save() {
+        val trimmedName = name.trim()
 
-            Text("Tipo di veicolo", style = MaterialTheme.typography.labelLarge)
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                VehicleType.entries.forEach { type ->
-                    VehicleTypeCard(
-                        type = type,
-                        selected = type == selectedType,
-                        onClick = { selectedType = type },
-                        modifier = Modifier.weight(1f)
-                    )
+        val plate = plateNumber.trim().takeIf { hasPlate && it.isNotBlank() }
+
+        if (vehicleId != null) {
+            viewModel.updateVehicle(vehicleId, trimmedName, selectedType, plate)
+        } else {
+            viewModel.addVehicle(trimmedName, selectedType, plate)
+        }
+        onSaved()
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .imePadding()
+    ) {
+        FormHeader(
+            title =
+                if (isEdit)
+                    "Modifica veicolo"
+                else
+                    "Nuovo veicolo",
+            subtitle = "",
+            onBack = onBack
+        )
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = Spacing.screenHorizontal),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xl)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                SectionLabel("Tipo di veicolo")
+                Row(
+                    modifier = Modifier.selectableGroup(),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.md)
+                ) {
+                    VehicleType.entries.forEach { type ->
+                        VehicleTypeCard(
+                            type = type,
+                            selected = type == selectedType,
+                            onClick = { selectedType = type },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
             }
-
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = {Text("Nome veicolo")},
-                placeholder = {
-                    Text("es. Fiat Panda")},
-                isError = name.isBlank(),
-                supportingText = { if (name.isBlank())
-                    Text("Nome obbligatorio")
-                },
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            AnimatedVisibility(
-                visible = selectedType != VehicleType.BICYCLE,
-                enter = fadeIn(),
-                exit = fadeOut()
-            ) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                SectionLabel("Nome")
                 OutlinedTextField(
-                    value = plateNumber,
-                    onValueChange = { plateNumber = it.uppercase() },
-                    label = {Text("Targa")},
-                    placeholder = {Text("es. AB123CD")},
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    value = name,
+                    onValueChange = {
+                        name = it
+                        nameTouched = true
+                    },
+                    placeholder = { Text("es. Fiat Panda") },
+                    singleLine = true,
+                    isError = showNameError,
+                    supportingText =
+                        if (showNameError) {
+                            {Text("Nome obbligatorio") }
+                        } else null,
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Sentences,
+                    imeAction =
+                        if (hasPlate)
+                            ImeAction.Next
+                        else
+                            ImeAction.Done
+                ),
+                shape = MaterialTheme.shapes.medium,
+                colors = formFieldColors(),
+                modifier = Modifier.fillMaxWidth()
                 )
             }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            Button(
-                onClick = {
-                    val plate = plateNumber.ifBlank { null }
-
-                    if (vehicleId != null) {
-                        viewModel.updateVehicle(vehicleId, name, selectedType, plate)
-                    } else {
-                        viewModel.addVehicle(name, selectedType, plate)
-
-                        name = ""
-                        selectedType = VehicleType.CAR
-                        plateNumber = ""
-
-                        coroutineScope.launch { snackbarHostState.showSnackbar("Veicolo aggiunto") }
-                    }
-                    onSaved()
-                },
-                enabled = name.isNotBlank(),
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-            ) {
-                Text("Salva", style = MaterialTheme.typography.titleMedium)
+            AnimatedVisibility(visible = hasPlate) {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    SectionLabel("Targa")
+                    OutlinedTextField(
+                        value = plateNumber,
+                        onValueChange = { input ->
+                            plateNumber = input.uppercase().filter { it.isLetterOrDigit() }.take(10)
+                            plateTouched = true
+                        },
+                        placeholder = { Text("es. AB123CD") },
+                        singleLine = true,
+                        isError = showPlateError,
+                        supportingText = if (showPlateError) {
+                            { Text("Targa obbligatoria") }
+                        } else null,
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.Characters,
+                            imeAction = ImeAction.Done
+                        ),
+                        colors = formFieldColors(),
+                        shape = MaterialTheme.shapes.medium,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
+            Spacer(Modifier.height(Spacing.sm))
+        }
+        Button(
+            onClick = { save() },
+            enabled = canSave,
+            shape = MaterialTheme.shapes.medium,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.screenHorizontal, vertical = Spacing.lg)
+                .height(Spacing.buttonHeight)
+        ) {
+            Text(
+                if (isEdit)
+                    "Salva modifiche"
+                else
+                    "Aggiungi veicolo",
+                style = MaterialTheme.typography.labelLarge
+            )
         }
     }
 }
 
+@Composable
+private fun FormHeader(title: String, subtitle: String, onBack: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = Spacing.sm, end = Spacing.screenHorizontal, top = Spacing.sm, bottom = Spacing.xl)
+    ) {
+        IconButton(onClick = onBack) {
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Indietro",
+                tint = MaterialTheme.colorScheme.onBackground
+            )
+        }
+
+        Column(modifier = Modifier.padding(start = Spacing.md)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Spacer(Modifier.height(Spacing.xs))
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
 @Composable
 private fun VehicleTypeCard(
     type: VehicleType,
@@ -169,47 +273,40 @@ private fun VehicleTypeCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val icon = when (type) {
-        VehicleType.CAR -> Icons.Default.DirectionsCar
-        VehicleType.MOTORCYCLE -> Icons.Default.TwoWheeler
-        VehicleType.BICYCLE -> Icons.Default.PedalBike
-    }
+    val shape = MaterialTheme.shapes.large
+    val container = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
+    val borderColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+    val iconColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+    val textColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
 
-    Card(
-        onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor =
-                if (selected)
-                    MaterialTheme.colorScheme.primaryContainer
-                else
-                    MaterialTheme.colorScheme.surfaceVariant
-        ),
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
+            .clip(shape)
+            .background(container)
+            .border(if (selected) 2.dp else 1.dp, borderColor, shape)
+            .selectable(selected = selected, onClick = onClick, role = Role.RadioButton)
+            .padding(vertical = Spacing.lg)
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(vertical = 16.dp).fillMaxWidth()
-        ) {
-            Icon(
-                icon,
-                contentDescription = null,
-                tint =
-                    if (selected)
-                        MaterialTheme.colorScheme.primary
-                    else
-                        MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                type.name,
-                style = MaterialTheme.typography.labelLarge,
-                color =
-                    if (selected)
-                        MaterialTheme.colorScheme.primary
-                    else
-                        MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+        Icon(
+            type.icon,
+            contentDescription = null,
+            tint = iconColor,
+            modifier = Modifier.size(28.dp)
+        )
+        Spacer(modifier = Modifier.height(Spacing.sm))
+        Text(
+            type.label,
+            style = MaterialTheme.typography.labelLarge,
+            color = textColor
+        )
     }
 }
+
+@Composable
+private fun formFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedContainerColor = MaterialTheme.colorScheme.surface,
+    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+    errorContainerColor = MaterialTheme.colorScheme.surface,
+    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+)

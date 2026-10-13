@@ -71,14 +71,44 @@ import java.util.Calendar
 import java.io.File
 import android.Manifest
 import android.content.pm.PackageManager
+import android.location.Location
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ConfirmationNumber
+import androidx.compose.material.icons.filled.EditNote
+import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LocationOff
+import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.MoneyOff
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import com.example.parkmate.ui.photo.FullScreenPhotoDialog
 import com.example.parkmate.ui.photo.PhotoThumbnail
-
+import com.example.parkmate.ui.theme.Spacing
+import com.example.parkmate.ui.theme.extendedColors
+import com.example.parkmate.ui.vehicles.icon
 
 private enum class LocationSource { CURRENT, SAVED }
 
@@ -124,7 +154,7 @@ fun StartParkScreen (
 
     val effectiveFixedCost = when (locationSource) {
         LocationSource.SAVED -> selectedSavedLocation?.fixedCost
-        LocationSource.CURRENT -> fixedCost.toDoubleOrNull()
+        LocationSource.CURRENT -> fixedCost.toPriceOrNull()
     }
 
     // Flag per riprovare l'avvio dopo la richiesta di permesso
@@ -250,7 +280,6 @@ fun StartParkScreen (
     // Prova a salvare la sessione nel database
     fun attemptStartParking(scope: CoroutineScope) {
         val vehicle = selectedVehicle ?: return
-
         summaryVehicleId = vehicle.id
 
         // Caso in cui la posizione è regolata manualmente sulla mappa
@@ -304,17 +333,22 @@ fun StartParkScreen (
     
     // INTERFACCIA UTENTE
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(20.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
-            if (summarySession != null) {
+
+        if (summarySession != null) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                ScreenHeader(
+                    title = "Parcheggio in corso",
+                    subtitle = ""
+                )
                 ActiveSessionSummary(
                     display = summarySession,
                     allSessions = activeSessions,
@@ -328,206 +362,521 @@ fun StartParkScreen (
                         summaryVehicleId = null
                         selectedVehicle = vehicles.firstOrNull { !hasActiveSession(it) }
                         resetForm()
-                    }
+                    },
+                    modifier = Modifier.padding(horizontal = Spacing.screenHorizontal).padding(bottom = Spacing.xl)
                 )
-            } else {
-                // Seleziona veicolo
-                Text("Veicolo", style = MaterialTheme.typography.labelLarge)
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(vehicles) { vehicle ->
-                        VehiclePickCard(
-                            vehicle = vehicle,
-                            selected = vehicle.id == selectedVehicle?.id,
-                            onClick = {
-                                selectedVehicle = vehicle
-                                if (hasActiveSession(vehicle)) summaryVehicleId = vehicle.id
+            }
+        } else {
+            val ticketExpiryValid = effectiveType != ParkingType.TICKET || (expiryTime?.let { it > System.currentTimeMillis() } == true)
+            // Bottone di avvio/termine
+
+            val canSave = selectedVehicle != null &&
+                    activeSessionForSelectedVechicle == null &&
+                    ticketExpiryValid &&
+                    (locationSource == LocationSource.CURRENT || selectedSavedLocation != null)
+
+            val blockingReason = when {
+                vehicles.isEmpty() -> "Aggiungi un veicolo"
+                selectedVehicle == null -> "Seleziona un veicolo"
+                activeSessionForSelectedVechicle != null -> null
+                locationSource == LocationSource.SAVED && selectedSavedLocation == null -> "Scegli un luogo salvato"
+                !ticketExpiryValid -> "Imposta una scadenza valida"
+                else -> null
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .imePadding()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    ScreenHeader(
+                        title = "Nuovo parcheggio",
+                        subtitle = ""
+                    )
+                    Column(
+                        modifier = Modifier
+                            .padding(horizontal = Spacing.screenHorizontal)
+                            .padding(bottom = Spacing.lg),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.lg)
+                    ) {
+                        FormSection(title = "Veicolo") {
+                            if (vehicles.isEmpty()) {
+                                Text(
+                                    "Non hai ancora veicoli. Aggiungine uno",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            } else {
+                                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    items(vehicles) { vehicle ->
+                                        VehicleOption(
+                                            vehicle = vehicle,
+                                            selected = vehicle.id == selectedVehicle?.id,
+                                            isParked = hasActiveSession(vehicle),
+                                            onClick = {
+                                                selectedVehicle = vehicle
+                                                if (hasActiveSession(vehicle))
+                                                    summaryVehicleId = vehicle.id
+                                            }
+                                        )
+                                    }
+                                }
                             }
-                        )
-                    }
-                }
-
-                // Form del parcheggio
-                if (locationSource == LocationSource.CURRENT) {
-                    // Seleziona tipo di parcheggio
-                    Text("Tipo di parcheggio", style = MaterialTheme.typography.labelLarge)
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        ParkingType.entries.forEach { type ->
-                            ParkingTypeCard(
-                                type = type,
-                                selected = type == selectedType,
-                                onClick = { selectedType = type },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
-
-                    AnimatedVisibility(visible = selectedType == ParkingType.HOURLY, enter = fadeIn(), exit = fadeOut()) {
-                        OutlinedTextField(
-                            value = hourlyRate,
-                            onValueChange = { hourlyRate = it },
-                            label = { Text("Tariffa oraria (€)") },
-                            shape = RoundedCornerShape(14.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-
-                    AnimatedVisibility(visible = selectedType == ParkingType.TICKET, enter = fadeIn(), exit = fadeOut()) {
-                        OutlinedTextField(
-                            value = fixedCost,
-                            onValueChange = { fixedCost = it },
-                            label = { Text("Costo ticket (€)") },
-                            shape = RoundedCornerShape(14.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                } else {
-                    selectedSavedLocation?.let { location ->
-                        SavedLocationCostSumamry(location)
-                    }
-                }
-
-                AnimatedVisibility(visible = effectiveType == ParkingType.TICKET, enter = fadeIn(), exit = fadeOut()) {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        ExpiryTimePicker(expiryTime = expiryTime, onExpirySelected = { expiryTime = it })
-
-                        val expiry = expiryTime
-                        if (expiry == null) {
-                            Text(
-                                "Imposta la scadenza per avviare il parcheggio",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        } else if (expiry <= System.currentTimeMillis()) {
-                            Text(
-                                "La scadenza deve essere successiva all'ora attuale",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        }
-                        Text("Avvisami prima della scadenza", style = MaterialTheme.typography.labelLarge)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf(1, 10, 15, 30).forEach { minutes ->
-                                FilterChip(
-                                    selected = warningMinutesBefore == minutes,
-                                    onClick = { warningMinutesBefore = minutes },
-                                    label = { Text("$minutes min") }
+                            if (activeSessionForSelectedVechicle != null) {
+                                InfoBanner(
+                                    text = "Questo veicolo ha già un parcheggio in corso",
+                                    actionLabel = "Vedi",
+                                    onAction = { summaryVehicleId = selectedVehicle?.id }
                                 )
                             }
                         }
-                    }
-                }
+                        // Posizione
+                        FormSection(title = "Posizione") {
+                            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
 
-                // Nota
-                OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("Nota (opzionale)") }, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth())
+                                // Attuale
+                                SegmentedButton(
+                                    selected = locationSource == LocationSource.CURRENT,
+                                    onClick = { locationSource = LocationSource.CURRENT },
+                                    shape = SegmentedButtonDefaults.itemShape(0, 2)
+                                )  { Text("Posizione Attuale") }
 
-                // Foto
-                Text("Foto (opzionale)", style = MaterialTheme.typography.labelLarge)
-                val currentPhoto = photoPath
-                if (currentPhoto == null) {
-                    OutlinedButton(
-                        onClick = { onTakePhoto() },
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.PhotoCamera, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Scatta foto")
-                    }
-                } else {
-                    PhotoThumbnail(
-                        path = currentPhoto,
-                        modifier = Modifier.fillMaxWidth().height(180.dp),
-                        onClick = { fullScreenPhoto = currentPhoto }
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TextButton(onClick = { onTakePhoto() }) {
-                            Text("Rifai foto")
+                                // Salvata
+                                SegmentedButton(
+                                    selected = locationSource == LocationSource.SAVED,
+                                    onClick = { locationSource = LocationSource.SAVED },
+                                    shape = SegmentedButtonDefaults.itemShape(1, 2)
+                                ) { Text("Luogo Salvato") }
+                            }
+                            // Pulsante per mostrare la mappa e regolare la posizione GPS
+                            if (locationSource == LocationSource.CURRENT) {
+                                when {
+                                    permissionStatus != LocationPermissionStatus.GRANTED -> LocationStatusRow(
+                                        text = "Il permesso verrà chiesto all'avvio",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    baseCoordinates == null -> LocationStatusRow(
+                                        text = "Rilevamento della posizione",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    manualCoordinates != null -> LocationStatusRow(
+                                        text = "Posizione regolata sulla mappa",
+                                        tint = MaterialTheme.colorScheme.secondary
+                                    )
+                                }
+                                if (baseCoordinates != null) {
+                                    TextButton(onClick = {
+                                        showMapAdjustment = !showMapAdjustment
+                                    }) {
+                                        TextButton(onClick = {showMapAdjustment = !showMapAdjustment}) {
+                                            Text(
+                                                if (showMapAdjustment)
+                                                    "Nascondi mappa"
+                                                else
+                                                    "Regola sulla mappa"
+                                            )
+                                        }
+                                    }
+                                    AnimatedVisibility(visible = showMapAdjustment) {
+                                        LocationAdjustmentMap(
+                                            coordinates = finalCoordinates,
+                                            isOverriden = manualCoordinates != null,
+                                            onMapClick = { lat, lng ->
+                                                manualCoordinates = lat to lng
+                                            },
+                                            onResetOverride = { manualCoordinates = null }
+                                        )
+                                    }
+                                }
+                            } else {
+                                if (savedLocations.isEmpty()) {
+                                    Text(
+                                        "Non hai ancora salvato nessun luogo",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                } else {
+                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                                        items(savedLocations, key = { it.id }) { location ->
+                                            FilterChip(
+                                                selected = location.id == selectedSavedLocation?.id,
+                                                onClick = { selectedSavedLocation = location },
+                                                label = { Text(location.name) }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
-                        TextButton(onClick = {
-                            File(currentPhoto).delete()
-                            photoPath = null
-                        }) { Text("Rimuovi") }
-                    }
-                }
+                        // Tariffa
+                        FormSection(title = "Tariffa") {
+                            if (locationSource == LocationSource.CURRENT) {
+                                Row(
+                                    modifier = Modifier.selectableGroup(),
+                                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                                ) {
+                                    ParkingType.entries.forEach { type ->
+                                        ParkingTypeOption(
+                                            type = type,
+                                            selected = type == selectedType,
+                                            onClick = { selectedType = type },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
+                                }
+                                // Tariffa oraria
+                                AnimatedVisibility(visible = selectedType == ParkingType.HOURLY) {
+                                    PriceField(
+                                        value = hourlyRate,
+                                        onValueChange = { hourlyRate = it },
+                                        label = "Tariffa oraria (€)",
+                                    )
+                                }
+                                // Ticket
+                                AnimatedVisibility(visible = selectedType == ParkingType.TICKET) {
+                                    PriceField(
+                                        value = fixedCost,
+                                        onValueChange = { fixedCost = it },
+                                        label = "Costo ticket (€)",
+                                    )
+                                }
+                            } else {
+                                val location = selectedSavedLocation
+                                if (location == null) {
+                                    Text(
+                                        "Scegli un luogo salvato per vedere la sua tariffa",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                } else {
+                                    SavedLocationCostSumamry(location)
+                                }
+                            }
+                        }
+                        // Scadenza
+                        AnimatedVisibility(visible = effectiveType == ParkingType.TICKET) {
+                            FormSection(title = "Scadenza del ticket") {
+                                ExpiryTimePicker(expiryTime = expiryTime, onExpirySelected = { expiryTime = it})
 
-                // Scelta posizione
-                Text("Posizione", style = MaterialTheme.typography.labelLarge)
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-
-                    // Attuale
-                    SegmentedButton(
-                        selected = locationSource == LocationSource.CURRENT,
-                        onClick = { locationSource = LocationSource.CURRENT },
-                        shape = SegmentedButtonDefaults.itemShape(0, 2)
-                    )  { Text("Posizione Attuale") }
-
-                    // Salvata
-                    SegmentedButton(
-                        selected = locationSource == LocationSource.SAVED,
-                        onClick = { locationSource = LocationSource.SAVED },
-                        shape = SegmentedButtonDefaults.itemShape(1, 2)
-                    ) { Text("Luogo Salvato") }
-                }
-
-                // Lista dei luoghi salvati versione chip
-                AnimatedVisibility(visible = locationSource == LocationSource.SAVED) {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(savedLocations) { location ->
-                            FilterChip(
-                                selected = location.id == selectedSavedLocation?.id,
-                                onClick = { selectedSavedLocation = location },
-                                label = { Text(location.name) }
+                                val expiry = expiryTime
+                                if (expiry == null) {
+                                    Text(
+                                        "Imposta la scadenza per avviare il parcheggio",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                } else if (expiry <= System.currentTimeMillis()) {
+                                    Text(
+                                        "La scadenza deve essere successiva all'ora attuale",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                                Text(
+                                    "Avvisami prima della scadenza",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                                    listOf(1, 10, 15, 30).forEach { minutes ->
+                                        FilterChip(
+                                            selected = warningMinutesBefore == minutes,
+                                            onClick = { warningMinutesBefore = minutes },
+                                            label = { Text("$minutes min") },
+                                            shape = MaterialTheme.shapes.small
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        // Dettagli
+                        FormSection(
+                            title = "Dettagli",
+                            subtitle = "Facoltativi"
+                        ) {
+                            // Nota
+                            OutlinedTextField(
+                                value = note,
+                                onValueChange = { note = it },
+                                label = { Text("Nota") },
+                                maxLines = 3,
+                                shape = MaterialTheme.shapes.medium,
+                                colors = formFieldColors(),
+                                modifier = Modifier.fillMaxWidth()
                             )
+
+                            // Foto
+                            val currentPhoto = photoPath
+                            if (currentPhoto == null) {
+                                OutlinedButton(
+                                    onClick = { onTakePhoto() },
+                                    shape = RoundedCornerShape(14.dp),
+                                    modifier = Modifier.fillMaxWidth().height(Spacing.buttonHeight)
+                                ) {
+                                    Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(20.dp))
+                                    Spacer(Modifier.width(Spacing.sm))
+                                    Text("Aggiungi una foto", style = MaterialTheme.typography.labelLarge)
+                                }
+                            } else {
+                                PhotoThumbnail(
+                                    path = currentPhoto,
+                                    modifier = Modifier.fillMaxWidth().height(180.dp),
+                                    onClick = { fullScreenPhoto = currentPhoto }
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                                    TextButton(onClick = { onTakePhoto() }) {
+                                        Text("Rifai foto")
+                                    }
+                                    TextButton(
+                                        onClick = {
+                                            File(currentPhoto).delete()
+                                            photoPath = null
+                                        },
+                                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                                    ) { Text("Rimuovi") }
+                                }
+                            }
                         }
                     }
                 }
-
-                // Pulsante per mostrare la mappa e regolare la posizione GPS
-                if (locationSource == LocationSource.CURRENT && baseCoordinates != null) {
-                    TextButton(onClick = { showMapAdjustment = !showMapAdjustment }) {
-                        Text(if (showMapAdjustment) "Nascondi mappa" else "Regola posizione sulla mappa")
-                    }
-                    AnimatedVisibility(visible = showMapAdjustment) {
-                        LocationAdjustmentMap(
-                            coordinates = finalCoordinates,
-                            isOverriden = manualCoordinates != null,
-                            onMapClick = { lat, lng -> manualCoordinates = lat to lng },
-                            onResetOverride = { manualCoordinates = null }
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Spacing.screenHorizontal, vertical = Spacing.lg),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+                ) {
+                    if (blockingReason != null) {
+                        Text(
+                            blockingReason,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
                         )
                     }
+                    Button(
+                        onClick = { attemptStartParking(coroutineScope) },
+                        enabled = canSave,
+                        shape = MaterialTheme.shapes.medium,
+                        modifier = Modifier.fillMaxWidth().height(Spacing.buttonHeight)
+                    ) { Text("Avvia parcheggio", style = MaterialTheme.typography.labelLarge) }
                 }
-
-                if (activeSessionForSelectedVechicle != null) {
-                    Text(
-                        "Questo veicolo ha già un parcheggio in corso",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                    TextButton(onClick = { summaryVehicleId = selectedVehicle?.id }) {
-                        Text("Vedi parcheggio in corso")
-                    }
-                }
-
-                val ticketExpiryValid = effectiveType != ParkingType.TICKET || (expiryTime?.let { it > System.currentTimeMillis() } == true)
-                // Bottone di avvio/termine
-                val canSave = selectedVehicle != null && activeSessionForSelectedVechicle == null && ticketExpiryValid && (locationSource == LocationSource.CURRENT || selectedSavedLocation != null)
-
-                Button(
-                    onClick = { attemptStartParking(coroutineScope) },
-                    enabled =  canSave,
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.fillMaxWidth().height(52.dp)
-                ) {
-                    Text("Avvia parcheggio", style = MaterialTheme.typography.titleMedium)
-                }
-
             }
-
         }
     }
     fullScreenPhoto?.let { path ->
         FullScreenPhotoDialog(path = path, onDismiss =  { fullScreenPhoto = null })
     }
+}
+@Composable
+private fun ScreenHeader(title: String, subtitle: String) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenHorizontal).padding(top = Spacing.xl, bottom = Spacing.lg)
+    ) {
+        Text(title, style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
+        Spacer(Modifier.height(Spacing.xs))
+        Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun FormSection(
+    title: String,
+    subtitle: String? = null,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val shape = MaterialTheme.shapes.large
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
+            .padding(Spacing.lg),
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+            if (subtitle != null) {
+                Spacer(Modifier.width(Spacing.sm))
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        content()
+    }
+}
+
+@Composable
+private fun InfoBanner(text: String, actionLabel: String, onAction: () -> Unit) {
+    val colors = MaterialTheme.extendedColors
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .background(colors.warningContainer)
+            .padding(start = Spacing.md, end = Spacing.xs, top = Spacing.xs, bottom = Spacing.xs),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(Icons.Default.Info, contentDescription = null, tint = colors.onWarningContainer, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(Spacing.sm))
+        Text(
+            text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = colors.onWarningContainer,
+            modifier = Modifier.weight(1f)
+        )
+        TextButton(onClick = onAction) {
+            Text(actionLabel, color = colors.onWarningContainer)
+        }
+    }
+}
+
+@Composable
+private fun LocationStatusRow(text: String, tint: Color) {
+    Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+@Composable
+private fun VehicleOption(vehicle: Vehicle, selected: Boolean, isParked: Boolean, onClick: () -> Unit) {
+    val shape = MaterialTheme.shapes.medium
+    Row(
+        modifier = Modifier
+            .clip(shape)
+            .background(if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
+            .border(
+                if (selected) 2.dp else 1.dp,
+                if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                shape
+            )
+            .selectable(selected = selected, onClick = onClick, role = Role.RadioButton)
+            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            vehicle.type.icon,
+            contentDescription = null,
+            tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(Modifier.width(Spacing.sm))
+        Column {
+            Text(
+                vehicle.name,
+                style = MaterialTheme.typography.labelLarge,
+                color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (isParked) {
+                Text("In sosta", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+            }
+        }
+    }
+}
+
+// Card per selezionare il tipo di parcheggio
+@Composable
+private fun ParkingTypeOption(type: ParkingType, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val shape = MaterialTheme.shapes.medium
+    Column (
+        modifier = modifier
+            .clip(shape)
+            .background(if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
+            .border(
+                if (selected) 2.dp else 1.dp,
+                if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                shape
+            )
+            .selectable(selected = selected, onClick = onClick, role = Role.RadioButton)
+            .padding(vertical = Spacing.md),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            parkingTypeLabel(type),
+            style = MaterialTheme.typography.labelLarge,
+            color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
+@Composable
+private fun PriceField(value: String, onValueChange: (String) -> Unit, label: String, suffix: String? = null) {
+    OutlinedTextField(
+        value = value,
+        // Solo cifre e un separatore decimale
+        onValueChange = { input -> onValueChange(input.filter { it.isDigit() || it == ',' || it == '.' }.take(7)) },
+        label = { Text(label) },
+        prefix = { Text("€ ") },
+        suffix = suffix?.let { s -> { Text(s) } },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        shape = MaterialTheme.shapes.medium,
+        colors = formFieldColors(),
+        modifier = Modifier.fillMaxWidth()
+    )
+}
+
+@Composable
+private fun SavedLocationCostSumamry(location: SavedLocation) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(Spacing.md),
+    ) {
+        Text(
+            parkingTypeLabel(location.parkingType),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Text(
+            when (location.parkingType) {
+                ParkingType.HOURLY -> location.hourlyRate?.let { "${formatPrice(it)} / ora" } ?: "Tariffa non indicata"
+                ParkingType.TICKET -> location.fixedCost?.let { formatPrice(it) } ?: "Costo non indicato"
+                ParkingType.FREE -> "Nessun costo" },
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun ExpiryTimePicker(expiryTime: Long?, onExpirySelected: (Long) -> Unit) {
+    val context = LocalContext.current
+    val calendar = remember { Calendar.getInstance() }
+    val label = expiryTime?.let {
+        "Scade il " + SimpleDateFormat("dd/MM/yyyy 'alle' HH:mm", Locale.ITALY).format(it)
+    } ?: "Imposta data e ora di scadenza"
+
+    OutlinedButton(
+        onClick = {
+            DatePickerDialog(context, { _, year, month, day ->
+                calendar.set(year, month, day)
+                TimePickerDialog(context, { _, hour, minute ->
+                    calendar.set(Calendar.HOUR_OF_DAY, hour)
+                    calendar.set(Calendar.MINUTE, minute)
+                    calendar.set(Calendar.SECOND, 0)
+                    onExpirySelected(calendar.timeInMillis)
+                }, calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), true).show()
+            }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)).show()
+        },
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(Spacing.buttonHeight)
+    ) {
+        Icon(Icons.Default.Event, contentDescription = null, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(Spacing.sm))
+        Text(label, style = MaterialTheme.typography.labelLarge)
+    }
+
 }
 
 // Mappa che permette di visualizzare e regolare manualmente la posizione
@@ -566,59 +915,219 @@ private fun LocationAdjustmentMap(
     }
 }
 
+@Composable
+private fun ActiveSessionSummary(
+    display: ActiveSessionDisplay,
+    allSessions: List<ActiveSessionDisplay>,
+    canStartNew: Boolean,
+    onSelectSession: (Long) -> Unit,
+    onEndParking: () -> Unit,
+    onNewParking: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val session = display.session
+    val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.ITALY) }
+    val dateTimeFormat = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.ITALY) }
+    var showPhoto by remember(session.id) { mutableStateOf(false) }
+
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
+
+        // Selettore tra più parcheggi in corso
+        if (allSessions.size > 1) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                items(allSessions, key = { it.session.id }) { other ->
+                    FilterChip(
+                        selected = other.session.vehicleId == session.vehicleId,
+                        onClick = { onSelectSession(other.session.vehicleId) },
+                        label = { Text(other.vehicleName) },
+                        shape = MaterialTheme.shapes.small
+                    )
+                }
+            }
+        }
+
+        // Card principale: veicolo, tempo, costo
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.large)
+                .background(MaterialTheme.colorScheme.primaryContainer)
+                .padding(vertical = Spacing.xl, horizontal = Spacing.lg),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "${display.vehicleName} · ${parkingTypeLabel(session.type)}",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Spacer(Modifier.height(Spacing.lg))
+            ParkingTrackerInfo(display = display)
+        }
+
+        // Dettagli
+        val shape = MaterialTheme.shapes.large
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(shape)
+                .background(MaterialTheme.colorScheme.surface)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
+                .padding(Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md)
+        ) {
+            DetailRow(
+                Icons.Default.Schedule,
+                "Inizio",
+                "Oggi alle ${timeFormat.format(session.startTime)}"
+            )
+
+            if (session.type == ParkingType.TICKET) {
+                session.expiryTime?.let { expiry ->
+                    DetailRow(Icons.Default.Event, "Scadenza", dateTimeFormat.format(expiry))
+                }
+            }
+
+            session.note?.takeIf { it.isNotBlank() }?.let { text ->
+                DetailRow(Icons.Default.EditNote, "Nota", text)
+            }
+
+            session.photoPath?.let { path ->
+                PhotoThumbnail(
+                    path = path,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(160.dp),
+                    onClick = { showPhoto = true }
+                )
+                if (showPhoto) {
+                    FullScreenPhotoDialog(path = path, onDismiss = { showPhoto = false })
+                }
+            }
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            Button(
+                onClick = onEndParking,
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(Spacing.buttonHeight)
+            ) {
+                Text("Termina parcheggio", style = MaterialTheme.typography.labelLarge)
+            }
+
+            OutlinedButton(
+                onClick = onNewParking,
+                enabled = canStartNew,
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(Spacing.buttonHeight)
+            ) {
+                Text("Nuovo parcheggio", style = MaterialTheme.typography.labelLarge)
+            }
+
+            if (!canStartNew) {
+                Text(
+                    "Tutti i veicoli hanno già un parcheggio in corso",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+    }
+}
+
+
 // Mostra le informazioni in tempo reale di un parcheggio attivo (tempo e costo).
 @Composable
 private fun ParkingTrackerInfo(display: ActiveSessionDisplay) {
     val isTicket = display.session.type == ParkingType.TICKET
     val remaining = display.remainingMillis
+    val onHero = MaterialTheme.colorScheme.onPrimaryContainer
 
     Column(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         if (isTicket && remaining != null) {
             val isExpired = remaining <= 0
-            val color =
-                if (isExpired)
-                    MaterialTheme.colorScheme.error
-                else
-                    MaterialTheme.colorScheme.onSurface
+            val isEndingSoon = !isExpired && remaining <= 15 * 60000L
+            val accent = when {
+                isExpired -> MaterialTheme.colorScheme.error
+                isEndingSoon -> MaterialTheme.extendedColors.warning
+                else -> onHero
+            }
             Text(
-                text =
-                    if (isExpired)
-                        "Ticket scaduto"
-                    else
-                        "Tempo rimanente",
+                when {
+                    isExpired -> "Ticket scaduto"
+                    isEndingSoon -> "In scadenza"
+                    else -> "Tempo rimanente"
+                },
                 style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = color
+                color = accent
             )
 
             Text(
                 text = formatElapsedDuration(remaining.coerceAtLeast(0)),
                 style = MaterialTheme.typography.displayLarge,
-                fontWeight = FontWeight.Bold,
-                color = color
+                color = accent
             )
         } else {
             // Tempo trascorso
             Text(
                 text = formatElapsedDuration(display.elapsedMillis),
                 style = MaterialTheme.typography.displayLarge,
-                fontWeight = FontWeight.Bold
+                color = onHero
             )
         }
         // Costo accumulato finora
         display.currentCost?.let { cost ->
             Text(
-                text = String.format(Locale.ITALY, "€ %.2f", cost),
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.primary
+                formatPrice(cost),
+                style = MaterialTheme.typography.titleLarge,
+                color = onHero
             )
         }
     }
 }
+
+@Composable
+private fun DetailRow(icon: ImageVector, label: String, value: String) {
+    Row(verticalAlignment = Alignment.Top) {
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(Spacing.md))
+        Column {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+        }
+    }
+}
+
+@Composable
+private fun formFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedContainerColor = MaterialTheme.colorScheme.surface,
+    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+    errorContainerColor = MaterialTheme.colorScheme.surface,
+    unfocusedBorderColor = MaterialTheme.colorScheme.outline
+)
+
+private fun parkingTypeLabel(type: ParkingType): String = when (type) {
+    ParkingType.FREE -> "Gratuito"
+    ParkingType.HOURLY -> "A ore"
+    ParkingType.TICKET -> "Ticket"
+}
+
+private fun String.toPriceOrNull(): Double? = trim().replace(',', '.').toDoubleOrNull()
+
+private fun formatPrice(value: Double): String = String.format(Locale.ITALY, "€ %.2f", value)
+
 
 // Formatta un valore in millisecondi in una stringa leggibile
 private fun formatElapsedDuration(millis: Long): String {
@@ -632,198 +1141,4 @@ private fun formatElapsedDuration(millis: Long): String {
     } else {
         String.format(Locale.ITALY, "%02d:%02d", minutes, seconds)
     }
-}
-
-// Card per la selezione di un veicolo
-@Composable
-private fun VehiclePickCard(vehicle: Vehicle, selected: Boolean, onClick: () -> Unit) {
-    Card(
-        onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer
-                else MaterialTheme.colorScheme.surfaceVariant
-        )
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Text(vehicle.name, style = MaterialTheme.typography.labelLarge)
-        }
-    }
-}
-
-// Card per selezionare il tipo di parcheggio
-@Composable
-private fun ParkingTypeCard(type: ParkingType, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Card(
-        onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer
-            else MaterialTheme.colorScheme.surfaceVariant
-        ),
-        modifier = modifier
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Text(
-                type.name,
-                style = MaterialTheme.typography.labelLarge,
-                color = if (selected) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-private fun SavedLocationCostSumamry(location: SavedLocation) {
-    Card(
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Tipo di parcheggio: ${location.parkingType.name}", style = MaterialTheme.typography.bodyMedium)
-            when (location.parkingType) {
-                ParkingType.HOURLY -> Text(
-                    "Tariffa oraria: ${location.hourlyRate}€",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-
-                ParkingType.TICKET -> Text(
-                    "Costo ticket: €%.2f".format(location.fixedCost ?: 0.0),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                ParkingType.FREE -> Text("Parcheggio gratuito", style = MaterialTheme.typography.bodyMedium)
-            }
-        }
-    }
-}
-
-@Composable
-private fun ExpiryTimePicker(expiryTime: Long?, onExpirySelected: (Long) -> Unit) {
-    val context = LocalContext.current
-    val calendar = remember { Calendar.getInstance() }
-
-    TextButton(onClick = {
-        DatePickerDialog(context, { _, year, month, day ->
-            calendar.set(year, month, day)
-            TimePickerDialog(context, { _, hour, minute ->
-                calendar.set(Calendar.HOUR_OF_DAY, hour)
-                calendar.set(Calendar.MINUTE, minute)
-                calendar.set(Calendar.SECOND, 0)
-                onExpirySelected(calendar.timeInMillis)
-            }, calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), true).show()
-        }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)).show()
-    }) {
-        val label = expiryTime?.let {
-            SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.ITALY).format(it)
-        } ?: "Imposta scadenza"
-        Text(
-            if (expiryTime != null)
-                "Scade il: $label"
-            else
-                label
-        )
-    }
-}
-
-@Composable
-private fun ActiveSessionSummary(
-    display: ActiveSessionDisplay,
-    allSessions: List<ActiveSessionDisplay>,
-    canStartNew: Boolean,
-    onSelectSession: (Long) -> Unit,
-    onEndParking: () -> Unit,
-    onNewParking: () -> Unit
-) {
-    val session = display.session
-    val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.ITALY) }
-    val dateTimeFormat = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.ITALY) }
-
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-
-        if (allSessions.size > 1) {
-            Text("Parcheggi in corso", style = MaterialTheme.typography.labelLarge)
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(allSessions, key = { it.session.id }) { other ->
-                    FilterChip(
-                        selected = other.session.vehicleId == session.vehicleId,
-                        onClick = { onSelectSession(other.session.vehicleId) },
-                        label = { Text(other.vehicleName)}
-                    )
-                }
-            }
-        }
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(display.vehicleName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text("Tipo: ${parkingTypeLabel(session.type)}", style = MaterialTheme.typography.bodyLarge)
-                Text("Iniziato alle ${timeFormat.format(session.startTime)}", style = MaterialTheme.typography.bodyMedium)
-
-                if (session.type == ParkingType.TICKET) {
-                    session.expiryTime?.let { expiry ->
-                        Text("Scade il ${dateTimeFormat.format(expiry)}", style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
-
-                session.note?.takeIf { it.isNotBlank() }?.let { text ->
-                    Text("Nota: $text", style = MaterialTheme.typography.bodyMedium)
-                }
-                session.photoPath?.let { path ->
-                    var showPhoto by remember { mutableStateOf(false) }
-                    PhotoThumbnail(
-                        path = path,
-                        modifier = Modifier.fillMaxWidth().height(160.dp),
-                        onClick = { showPhoto = true }
-                    )
-                    if (showPhoto) {
-                        FullScreenPhotoDialog(path = path, onDismiss = { showPhoto = false })
-                    }
-                }
-            }
-        }
-
-        ParkingTrackerInfo(display = display)
-
-        Button(
-            onClick = onEndParking,
-            shape = RoundedCornerShape(14.dp),
-            modifier = Modifier.fillMaxWidth().height(52.dp)
-        ) {
-            Text("Termina parcheggio", style = MaterialTheme.typography.titleMedium)
-        }
-
-        OutlinedButton(
-            onClick = onNewParking,
-            enabled = canStartNew,
-            shape = RoundedCornerShape(14.dp),
-            modifier = Modifier.fillMaxWidth().height(52.dp)
-        ) {
-            Text("Nuovo parcheggio")
-        }
-
-        if (!canStartNew) {
-            Text(
-                "Tutti i veicoli hanno già un parcheggio in corso",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-private fun parkingTypeLabel(type: ParkingType): String = when (type) {
-    ParkingType.FREE -> "Gratuito"
-    ParkingType.HOURLY -> "A ore"
-    ParkingType.TICKET -> "Ticket"
 }

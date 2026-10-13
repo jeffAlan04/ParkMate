@@ -49,6 +49,7 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) readStartLocation(intent)
         setContent {
             ParkMateTheme {
+                RequestNotificationPermission()
                 ParkMateApp(startLocationId = startLocationId)
             }
         }

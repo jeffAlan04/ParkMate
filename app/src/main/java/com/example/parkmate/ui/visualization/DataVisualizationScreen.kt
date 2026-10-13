@@ -1,49 +1,53 @@
 package com.example.parkmate.ui.visualization
 
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.parkmate.data.local.entity.ParkingType
+import com.example.parkmate.ui.parking.formatPrice
+import com.example.parkmate.ui.parking.label
+import com.example.parkmate.ui.theme.Spacing
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.TileOverlay
 import com.google.maps.android.compose.rememberCameraPositionState
+import com.google.maps.android.heatmaps.Gradient
 import com.google.maps.android.heatmaps.HeatmapTileProvider
+import kotlin.math.roundToInt
 
 private val DEFAULT_POSITION = LatLng(44.4949, 11.3426)
 
-private val TYPE_COLORS = mapOf(
-    "FREE" to Color(0xFF4CAF50),
-    "HOURLY" to Color(0xFF2196F3),
-    "TICKET" to Color(0xFFFF9800)
-)
+
 @Composable
 fun DataVisualizationScreen(
     viewModel: DataViewModel = viewModel(factory = DataViewModelFactory)
@@ -53,37 +57,109 @@ fun DataVisualizationScreen(
     val totalCost by viewModel.totalCost.collectAsState()
     val countByType by viewModel.countByType.collectAsState()
 
+    val totalCount = countByType.sumOf { it.count }.toInt()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(20.dp)
+            .background(MaterialTheme.colorScheme.background)
             .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        Text("Distribuzione dei parcheggi", style = MaterialTheme.typography.titleLarge)
-        ParkingHeatMap(
-            points = heatmapPoints,
-            modifier = Modifier.fillMaxWidth().height(250.dp)
-        )
-
-        Text("Numero di parcheggi per tipo", style = MaterialTheme.typography.titleLarge)
-        ParkingCountBarChart(
-            data = countByType,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Text("Spesa totale", style = MaterialTheme.typography.titleLarge)
         Text(
-            text = "€%.2f".format(totalCost),
-            style = MaterialTheme.typography.headlineMedium
+            "Statistiche",
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier
+                .padding(horizontal = Spacing.screenHorizontal)
+                .padding(top = Spacing.xl, bottom = Spacing.lg)
         )
+        Column(
+            modifier = Modifier
+                .padding(horizontal = Spacing.screenHorizontal)
+                .padding(bottom = Spacing.xl),
+            verticalArrangement = Arrangement.spacedBy(Spacing.lg)
+        ) {
+            TotalSpendingHero(totalCost = totalCost, totalCount = totalCount)
 
-        Text("Spesa per tipo di parcheggio", style = MaterialTheme.typography.titleLarge)
-        SpendingPieChart(
-            data = costByType,
-            modifier = Modifier.fillMaxWidth()
+            StatSection(title = "Dove parcheggi") {
+                if (heatmapPoints.isEmpty()) {
+                    EmptyText("Nessun parcheggio registrato")
+                } else {
+                    ParkingHeatMap(
+                        points = heatmapPoints,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(240.dp)
+                            .clip(MaterialTheme.shapes.medium)
+                    )
+                }
+            }
+
+            StatSection(title = "Parcheggi per tipo") {
+                if (countByType.isEmpty() || totalCount == 0) {
+                    EmptyText("Nessun parcheggio registrato")
+                } else {
+                    ParkingCountBarChart(data = countByType)
+                }
+            }
+
+            StatSection(title = "Spesa per tipo") {
+                if (costByType.isEmpty() || costByType.sumOf { it.totalCost } == 0.0) {
+                    EmptyText("Nessuna spesa registrata")
+                } else {
+                    SpendingBreakdown(data = costByType)
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+private fun TotalSpendingHero(totalCost: Double, totalCount: Int) {
+    val onHero = MaterialTheme.colorScheme.onPrimaryContainer
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.large)
+            .background(MaterialTheme.colorScheme.primaryContainer)
+            .padding(vertical = Spacing.xl, horizontal = Spacing.lg),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("Spesa totale", style = MaterialTheme.typography.labelLarge, color = onHero)
+        Spacer(Modifier.height(Spacing.xs))
+        Text(formatPrice(totalCost), style = MaterialTheme.typography.displaySmall, color = onHero)
+        Spacer(Modifier.height(Spacing.xs))
+        Text(
+            if (totalCount == 1)
+                "1 parcheggio"
+            else
+                "$totalCount parcheggi",
+            style = MaterialTheme.typography.bodyMedium,
+            color = onHero
         )
     }
+}
+@Composable
+private fun StatSection(title: String, content: @Composable ColumnScope.() -> Unit) {
+    val shape = MaterialTheme.shapes.large
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
+            .padding(Spacing.lg),
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
+    ) {
+        Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+        content()
+    }
+}
+
+@Composable
+private fun EmptyText(text: String) {
+    Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 @Composable
@@ -93,10 +169,20 @@ private fun ParkingHeatMap(points: List<LatLng>, modifier: Modifier = Modifier) 
     }
 
     val tileProvider = remember(points) {
-        if (points.isNotEmpty())
-            HeatmapTileProvider.Builder().data(points).build()
-        else
-            null
+        HeatmapTileProvider.Builder()
+            .data(points)
+            .radius(40)
+            .gradient(
+                Gradient(
+                    intArrayOf(
+                        Color(0xFF39A9FF).toArgb(),
+                        Color(0xFF1457D9).toArgb(),
+                        Color(0xFF0B1C48).toArgb()
+                    ),
+                    floatArrayOf(0.2f, 0.6f, 1f)
+                )
+            )
+            .build()
     }
 
     GoogleMap(modifier = modifier, cameraPositionState = cameraPositionState) {
@@ -108,50 +194,48 @@ private fun ParkingHeatMap(points: List<LatLng>, modifier: Modifier = Modifier) 
 
 @Composable
 private fun ParkingCountBarChart(data: List<TypeCount>, modifier: Modifier = Modifier) {
-    var selectedIndex by remember { mutableStateOf<Int?>(null) }
-    val maxCount = data.maxOfOrNull { it.count } ?: 0.0
+    val maxCount = data.maxOf { it.count }
+    val maxBarHeight = 140.dp
 
-    Column(modifier = modifier) {
-        Canvas(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(220.dp)
-                .pointerInput(data) {
-                    detectTapGestures { offset ->
-                        if (data.isNotEmpty()) {
-                            val barWidth = size.width / data.size
-                            selectedIndex = (offset.x / barWidth).toInt().coerceIn(0, data.size - 1)
-                        }
-                    }
-                }
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Bottom
         ) {
-            if (data.isEmpty() || maxCount == 0.0)
-                return@Canvas
-
-            val barWidth = size.width / data.size
-            data.forEachIndexed { index, item ->
+            data.forEach { item ->
                 val ratio = item.count.toFloat() / maxCount.toFloat()
-                val barHeight = size.height * ratio
-                val isSelected = index == selectedIndex
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        item.count.toInt().toString(),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(Modifier.height(Spacing.xs))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.5f)
+                            .height((maxBarHeight * ratio).coerceAtLeast(2.dp))
+                            .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                            .background(typeColor(item.label))
 
-                drawRect(
-                    color = (TYPE_COLORS[item.label] ?: Color.Gray).let {if (isSelected) it else it.copy(alpha = 0.6f) },
-                    topLeft = Offset(x = index * barWidth + barWidth * -.15f, y = size.height - barHeight),
-                    size = Size(width = barWidth * 0.7f, height = barHeight)
-                )
+                    )
+                }
             }
         }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Spacer(Modifier.height(Spacing.sm))
 
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            data.forEach { item -> Text(item.label, style = MaterialTheme.typography.labelSmall) }
-        }
-
-        selectedIndex?.let { index ->
-            data.getOrNull(index)?.let { item ->
+        Row(modifier = Modifier.fillMaxWidth()) {
+            data.forEach { item ->
                 Text(
-                    "${item.label}: ${item.count} parcheggi",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(top = 8.dp)
+                    typeLabel(item.label),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f)
                 )
             }
         }
@@ -159,73 +243,62 @@ private fun ParkingCountBarChart(data: List<TypeCount>, modifier: Modifier = Mod
 }
 
 @Composable
-private fun SpendingPieChart(data: List<CostAggregation>, modifier: Modifier = Modifier) {
-    var selectedIndex by remember { mutableStateOf<Int?>(null) }
+private fun SpendingBreakdown(data: List<CostAggregation>) {
     val total = data.sumOf { it.totalCost }
 
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        if (data.isEmpty() || total == 0.0) {
-            Text("Nessuna spesa registrata", style = MaterialTheme.typography.bodyMedium)
-            return@Column
-        }
-
-        Canvas(
-            modifier = Modifier.size(220.dp).pointerInput(data) {
-                detectTapGestures { offset ->
-                    val center = Offset(size.width / 2f, size.height / 2f)
-                    val dx = offset.x - center.x
-                    val dy = offset.y - center.y
-                    var angle = Math.toDegrees(Math.atan2(dy.toDouble(), dx.toDouble()))
-
-                    if (angle < 0)
-                        angle += 360.0
-
-                    var acc = 0.0
-                    for ((index, item) in data.withIndex()) {
-                        val sweep = (item.totalCost / total) * 360.0
-                        if (angle >= acc && angle < acc + sweep) {
-                            selectedIndex = index
-                            break
-                        }
-                        acc += sweep
-                    }
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
+        data.sortedByDescending { it.totalCost }.forEach { item ->
+            val share = (item.totalCost / total).toFloat()
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        typeLabel(item.label),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        formatPrice(item.totalCost),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        "  ${(share * 100).roundToInt()}%",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(share)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(typeColor(item.label))
+                    )
                 }
             }
-        ) {
-            val strokeWidth = size.minDimension * 0.28f
-            val diameter = size.minDimension - strokeWidth
-            val topLeft = Offset((size.width - diameter) / 2f, (size.height - diameter) / 2f)
-            var startAngle = -90f
-
-            data.forEachIndexed { index, item ->
-                val sweep = ((item.totalCost / total) * 360f).toFloat()
-                val isSelected = index == selectedIndex
-                drawArc(
-                    color = (TYPE_COLORS[item.label] ?: Color.Gray).let { if (isSelected) it else it.copy(alpha = 0.7f) },
-                    startAngle = startAngle,
-                    sweepAngle = sweep,
-                    useCenter = false,
-                    topLeft = topLeft,
-                    size = Size(diameter, diameter),
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(
-                        width = if (isSelected) strokeWidth * 1.5f else strokeWidth,
-                        cap = StrokeCap.Butt
-                    )
-                )
-                startAngle += sweep
-            }
-        }
-
-        Spacer(Modifier.height(12.dp))
-
-        data.forEachIndexed { index, item ->
-            val percent = (item.totalCost / total) * 100
-            Text(
-                "${item.label}: €%.2f (%.0f%%)".format(item.totalCost, percent),
-                style = if (index == selectedIndex) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium,
-                color = TYPE_COLORS[item.label] ?: Color.Gray
-            )
         }
     }
-
 }
+@Composable
+private fun typeColor(label: String): Color {
+    val dark = isSystemInDarkTheme()
+    return when (label) {
+        "FREE" -> if (dark) Color(0xFF1FAE55) else Color(0xFF16A34A)
+        "HOURLY" -> if (dark) Color(0xFF5B8DEF) else Color(0xFF1457D9)
+        "TICKET" -> if (dark) Color(0xFFC97808) else Color(0xFFD97706)
+        else -> MaterialTheme.colorScheme.outline
+    }
+}
+
+private fun typeLabel(label: String): String = runCatching { ParkingType.valueOf(label).label }.getOrDefault(label)

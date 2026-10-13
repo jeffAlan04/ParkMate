@@ -9,6 +9,6 @@ object VehicleViewModelFactory : ViewModelProvider.Factory{
     override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T {
         val app = extras[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as ParkMateApplication
         @Suppress("UNCHECKED_CAST")
-        return VehicleViewModel(app.container.vehicleRepository) as T
+        return VehicleViewModel(app.container.vehicleRepository, app.container.parkingRepository) as T
     }
 }

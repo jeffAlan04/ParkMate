@@ -150,7 +150,7 @@ fun MapScreen(
                             Marker(
                                 state = markerState,
                                 title = display.vehicleName,
-                                icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE),
+                                icon = BitmapDescriptorFactory.defaultMarker(2f),
                                 onClick = {
                                     selectedSession = display
                                     true
@@ -222,9 +222,9 @@ fun MapScreen(
 }
 
 private fun markerHueFor(type: ParkingType): Float = when (type) {
-    ParkingType.FREE -> BitmapDescriptorFactory.HUE_GREEN
-    ParkingType.HOURLY -> BitmapDescriptorFactory.HUE_CYAN
-    ParkingType.TICKET -> BitmapDescriptorFactory.HUE_ORANGE
+    ParkingType.FREE -> 140f
+    ParkingType.HOURLY -> 220f
+    ParkingType.TICKET -> 38f
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -359,7 +359,7 @@ private fun LocationFormSheet(
                 OutlinedTextField(
                     value = fixedCostText,
                     onValueChange = { fixedCostText = it },
-                    label = { Text("Costo ticker") },
+                    label = { Text("Costo ticket") },
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth()
                 )

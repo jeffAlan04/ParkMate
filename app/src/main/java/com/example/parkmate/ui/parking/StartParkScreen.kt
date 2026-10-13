@@ -149,7 +149,7 @@ fun StartParkScreen (
 
     val effectiveHourlyRate = when (locationSource) {
         LocationSource.SAVED -> selectedSavedLocation?.hourlyRate
-        LocationSource.CURRENT -> hourlyRate.toDoubleOrNull()
+        LocationSource.CURRENT -> hourlyRate.toPriceOrNull()
     }
 
     val effectiveFixedCost = when (locationSource) {
@@ -469,19 +469,19 @@ fun StartParkScreen (
                                         text = "Posizione regolata sulla mappa",
                                         tint = MaterialTheme.colorScheme.secondary
                                     )
+                                    else -> LocationStatusRow(
+                                        text = "Posizione rilevata",
+                                        tint = MaterialTheme.colorScheme.secondary
+                                    )
                                 }
                                 if (baseCoordinates != null) {
-                                    TextButton(onClick = {
-                                        showMapAdjustment = !showMapAdjustment
-                                    }) {
-                                        TextButton(onClick = {showMapAdjustment = !showMapAdjustment}) {
-                                            Text(
-                                                if (showMapAdjustment)
-                                                    "Nascondi mappa"
-                                                else
-                                                    "Regola sulla mappa"
-                                            )
-                                        }
+                                    TextButton(onClick = {showMapAdjustment = !showMapAdjustment}) {
+                                        Text(
+                                            if (showMapAdjustment)
+                                                "Nascondi mappa"
+                                            else
+                                                "Regola sulla mappa"
+                                        )
                                     }
                                     AnimatedVisibility(visible = showMapAdjustment) {
                                         LocationAdjustmentMap(
@@ -739,7 +739,7 @@ private fun InfoBanner(text: String, actionLabel: String, onAction: () -> Unit) 
 
 @Composable
 private fun LocationStatusRow(text: String, tint: Color) {
-    Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(text, style = MaterialTheme.typography.bodyMedium, color = tint)
 }
 
 @Composable
@@ -798,7 +798,7 @@ private fun ParkingTypeOption(type: ParkingType, selected: Boolean, onClick: () 
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            parkingTypeLabel(type),
+            type.label,
             style = MaterialTheme.typography.labelLarge,
             color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
         )
@@ -832,7 +832,7 @@ private fun SavedLocationCostSumamry(location: SavedLocation) {
             .padding(Spacing.md),
     ) {
         Text(
-            parkingTypeLabel(location.parkingType),
+            location.parkingType.label,
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onSurface
         )
@@ -957,7 +957,7 @@ private fun ActiveSessionSummary(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "${display.vehicleName} · ${parkingTypeLabel(session.type)}",
+                    "${display.vehicleName} · ${session.type.label}",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                     maxLines = 1,
@@ -1118,16 +1118,7 @@ private fun formFieldColors() = OutlinedTextFieldDefaults.colors(
     unfocusedBorderColor = MaterialTheme.colorScheme.outline
 )
 
-private fun parkingTypeLabel(type: ParkingType): String = when (type) {
-    ParkingType.FREE -> "Gratuito"
-    ParkingType.HOURLY -> "A ore"
-    ParkingType.TICKET -> "Ticket"
-}
-
 private fun String.toPriceOrNull(): Double? = trim().replace(',', '.').toDoubleOrNull()
-
-private fun formatPrice(value: Double): String = String.format(Locale.ITALY, "€ %.2f", value)
-
 
 // Formatta un valore in millisecondi in una stringa leggibile
 private fun formatElapsedDuration(millis: Long): String {

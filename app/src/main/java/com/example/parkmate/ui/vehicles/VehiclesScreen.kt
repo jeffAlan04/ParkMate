@@ -241,7 +241,6 @@ private fun VehicleTypeIcon(type: VehicleType) {
     }
 }
 
-// Stato con testo + pallino: il colore non è l'unico indicatore
 @Composable
 private fun ParkingStatusChip(isParked: Boolean) {
     val container =
@@ -266,7 +265,6 @@ private fun ParkingStatusChip(isParked: Boolean) {
     }
 }
 
-
 @Composable
 private fun EmptyVehicles(modifier: Modifier = Modifier) {
     Column(
@@ -284,7 +282,6 @@ private fun EmptyVehicles(modifier: Modifier = Modifier) {
         )
     }
 }
-
 
 @Composable
 private fun DeleteVehicleDialog(

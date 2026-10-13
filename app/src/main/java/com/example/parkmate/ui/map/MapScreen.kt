@@ -18,14 +18,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -48,7 +45,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -71,6 +67,14 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import android.Manifest
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.text.input.KeyboardType
+import com.example.parkmate.ui.parking.formatPrice
+import com.example.parkmate.ui.parking.label
+import com.example.parkmate.ui.theme.Spacing
 
 private enum class MapMode {SAVED_LOCATIONS, ACTIVE_SESSIONS}
 private val DEFAULT_POSITION = LatLng(44.4949, 11.3426)
@@ -107,8 +111,23 @@ fun MapScreen(
         cameraPositionState.position = CameraPosition.fromLatLngZoom(initialPosition, 14f)
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+    Column(
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
+    ) {
+        Text(
+            "Mappa",
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier
+                .padding(horizontal = Spacing.screenHorizontal)
+                .padding(top = Spacing.xl, bottom = Spacing.lg)
+        )
+
+        SingleChoiceSegmentedButtonRow(
+            modifier = Modifier.fillMaxWidth()
+                .padding(horizontal = Spacing.screenHorizontal)
+                .padding(bottom = Spacing.md)
+        ) {
             SegmentedButton(
                 selected = mapMode == MapMode.SAVED_LOCATIONS,
                 onClick = { mapMode = MapMode.SAVED_LOCATIONS },
@@ -121,17 +140,6 @@ fun MapScreen(
                 shape = SegmentedButtonDefaults.itemShape(1, 2)
             ) { Text("Sessioni attive") }
         }
-
-        Text(
-            text =
-                if (mapMode == MapMode.SAVED_LOCATIONS)
-                    "Luoghi salvati"
-                else
-                    "Parcheggi attivi",
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-        )
         if (formMode == null) {
             GoogleMap(
                 modifier = Modifier.fillMaxSize(),
@@ -165,7 +173,7 @@ fun MapScreen(
                             val markerState = remember(location.id, position) { MarkerState(position = position) }
                             Marker(
                                 state = markerState,
-                                title = location.parkingType.name,
+                                title = location.name,
                                 icon = BitmapDescriptorFactory.defaultMarker(markerHueFor(location.parkingType)),
                                 onClick = {
                                     formMode = LocationFormMode.Edit(location)
@@ -177,9 +185,9 @@ fun MapScreen(
                                 Circle(
                                     center = LatLng(location.latitude, location.longitude),
                                     radius = location.geofenceRadius.toDouble(),
-                                    strokeColor = Color(0xFF2196F3),
+                                    strokeColor = MaterialTheme.colorScheme.primary,
                                     strokeWidth = 2f,
-                                    fillColor = Color(0x332196F3)
+                                    fillColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
                                 )
                             }
                         }
@@ -256,6 +264,9 @@ private fun LocationFormSheet(
     var geofenceEnabled by remember { mutableStateOf((mode as? LocationFormMode.Edit)?.location?.geofenceEnabled ?: false) }
     var geofenceRadius by remember { mutableStateOf((mode as? LocationFormMode.Edit)?.location?.geofenceRadius ?: 100f) }
 
+    var hourlyTouched by remember { mutableStateOf(false) }
+    var ticketTouched by remember { mutableStateOf(false) }
+
     val requestGeofencePermission = rememberGeofencePermissionRequester { granted ->
         geofenceEnabled = granted
     }
@@ -266,8 +277,10 @@ private fun LocationFormSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp)
+                .padding(horizontal = Spacing.screenHorizontal)
+                .padding(bottom = Spacing.xl)
                 .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md)
         ) {
             Text(
                 if (mode is LocationFormMode.Add) "Nuovo luogo" else "Modifica luogo",
@@ -286,6 +299,16 @@ private fun LocationFormSheet(
             val cameraPositionState = rememberCameraPositionState {
                 position = CameraPosition.fromLatLngZoom(markerPosition ?: DEFAULT_POSITION, 16f)
             }
+
+            val hourlyRate = hourlyRateText.toPriceOrNull()
+            val fixedCost = fixedCostText.toPriceOrNull()
+
+            val priceValid = when (selectedType) {
+                ParkingType.FREE -> true
+                ParkingType.HOURLY -> hourlyRate != null && hourlyRate > 0
+                ParkingType.TICKET -> fixedCost != null && fixedCost > 0
+            }
+
 
             GoogleMap(
                 modifier = Modifier.fillMaxWidth().height(200.dp),
@@ -342,12 +365,21 @@ private fun LocationFormSheet(
                 enter = fadeIn(),
                 exit = fadeOut()
             ) {
+                val showError = hourlyTouched && (hourlyRate == null || hourlyRate <= 0)
+
                 OutlinedTextField(
                     value = hourlyRateText,
-                    onValueChange = { hourlyRateText = it },
+                    onValueChange = { input ->
+                        hourlyRateText = input.filter { it.isDigit() || it == ',' || it == '.' }.take(7)
+                        hourlyTouched = true
+                    },
                     label = { Text("Prezzo orario") },
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    isError = showError,
+                    supportingText = if (showError) { { Text("Inserisci una tariffa") } } else null,
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier.fillMaxWidth().offset(y = (-5).dp)
                 )
             }
 
@@ -356,12 +388,20 @@ private fun LocationFormSheet(
                 enter = fadeIn(),
                 exit = fadeOut()
             ) {
+                val showError = ticketTouched && (fixedCost == null || fixedCost <= 0)
                 OutlinedTextField(
                     value = fixedCostText,
-                    onValueChange = { fixedCostText = it },
+                    onValueChange = { input ->
+                        fixedCostText = input.filter { it.isDigit() || it == ',' || it == '.' }.take(7)
+                        ticketTouched = true
+                    },
                     label = { Text("Costo ticket") },
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    isError = showError,
+                    supportingText = if (showError) { { Text("Inserisci il costo del ticket") } } else null,
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier.fillMaxWidth().offset(y = (-5).dp)
                 )
             }
 
@@ -390,13 +430,22 @@ private fun LocationFormSheet(
                 }
             }
 
-            val canSave = name.isNotBlank() && latitudeText.toDoubleOrNull() != null && longitudeText.toDoubleOrNull() != null
+
+            val canSave = name.isNotBlank() && latitudeText.toDoubleOrNull() != null && longitudeText.toDoubleOrNull() != null && priceValid
 
             Button(
                 onClick = {
                     val lat = latitudeText.toDoubleOrNull() ?: return@Button
                     val lng = longitudeText.toDoubleOrNull() ?: return@Button
-                    onSave(name, lat, lng, selectedType, hourlyRateText.toDoubleOrNull(), fixedCostText.toDoubleOrNull(), geofenceEnabled, geofenceRadius)
+                    onSave(
+                        name,
+                        lat,
+                        lng,
+                        selectedType,
+                        hourlyRate.takeIf { selectedType == ParkingType.HOURLY},
+                        fixedCost.takeIf { selectedType == ParkingType.TICKET},
+                        geofenceEnabled,
+                        geofenceRadius)
                 },
                 enabled = canSave,
                 shape = RoundedCornerShape(14.dp),
@@ -446,7 +495,7 @@ private fun LocationTypeCard(
             modifier = Modifier.padding(16.dp)
         ) {
             Text(
-                type.name,
+                type.label,
                 style = MaterialTheme.typography.labelLarge,
                 color =
                     if (selected)
@@ -459,36 +508,74 @@ private fun LocationTypeCard(
 }
 @Composable
 private fun SessionDetailContent(display: ActiveSessionDisplay) {
-    val startTimeFormatted = remember(display.session.startTime) {
-        SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(display.session.startTime))
-    }
+    val session = display.session
+    val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.ITALY) }
+    val dateTimeFormat = remember { SimpleDateFormat("dd/MM/yyyy 'alle' HH:mm", Locale.ITALY) }
 
-    Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
-        Row {
-            Icon(Icons.Default.DirectionsCar, contentDescription = null)
-            Spacer(modifier = Modifier.height(0.dp))
+
+    Column(modifier = Modifier
+        .fillMaxWidth()
+        .padding(horizontal = Spacing.screenHorizontal)
+        .padding(bottom = Spacing.xl),
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
+    ) {
+        Column {
             Text(
                 display.vehicleName,
                 style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                session.type.label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-        Text("Tipo: ${display.session.type.name}", style = MaterialTheme.typography.bodyLarge)
-        Text("Iniziato alle: $startTimeFormatted", style = MaterialTheme.typography.bodyLarge)
+        SessionInfoRow("Inizio", "Oggi alle ${timeFormat.format(Date(session.startTime))}")
+
+        // Scadenza solo per i ticket
+        if (session.type == ParkingType.TICKET) {
+            session.expiryTime?.let { expiry ->
+                val expired = expiry <= System.currentTimeMillis()
+                SessionInfoRow(
+                    label = if (expired) "Scaduto il" else "Scadenza",
+                    value = dateTimeFormat.format(Date(expiry)),
+                    valueColor = if (expired) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
 
         display.currentCost?.let { cost ->
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Costo attuale: €%.2f".format(cost),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary
+            SessionInfoRow(
+                label = if (session.type == ParkingType.TICKET) "Costo" else "Costo attuale",
+                value = formatPrice(cost),
+                valueColor = MaterialTheme.colorScheme.primary
             )
-        }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        }
+    }
+}
+
+@Composable
+private fun SessionInfoRow(
+    label: String,
+    value: String,
+    valueColor: Color = MaterialTheme.colorScheme.onSurface
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f)
+        )
+        Text(value, style = MaterialTheme.typography.titleSmall, color = valueColor)
     }
 }
 
@@ -524,3 +611,5 @@ private fun rememberGeofencePermissionRequester(onResult: (Boolean) -> Unit): ()
         }
     }
 }
+
+private fun String.toPriceOrNull(): Double? = trim().replace(',', '.').toDoubleOrNull()

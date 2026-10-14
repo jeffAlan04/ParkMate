@@ -1,6 +1,5 @@
-package com.example.parkmate.data.photo
+package com.example.parkmate.ui.photo
 
-import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
@@ -33,11 +32,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-
-fun createPhotoFile(context: Context): File {
-    val dir = File(context.filesDir, "photos").apply { mkdirs() }
-    return File(dir, "session_${System.currentTimeMillis()}.jpg")
-}
 
 private fun decodeSampled(path: String, reqSize: Int): Bitmap? {
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }

@@ -71,6 +71,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.ui.text.input.KeyboardType
 import com.example.parkmate.ui.common.formatPrice
+import com.example.parkmate.ui.common.toPriceOrNull
 import com.example.parkmate.ui.parking.label
 import com.example.parkmate.ui.theme.Spacing
 
@@ -610,4 +611,3 @@ private fun rememberGeofencePermissionRequester(onResult: (Boolean) -> Unit): ()
     }
 }
 
-private fun String.toPriceOrNull(): Double? = trim().replace(',', '.').toDoubleOrNull()

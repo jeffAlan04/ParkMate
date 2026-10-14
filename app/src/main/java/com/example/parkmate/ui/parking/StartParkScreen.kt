@@ -59,7 +59,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
-import com.example.parkmate.ui.photo.createPhotoFile
+import com.example.parkmate.data.photo.createPhotoFile
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.io.File
@@ -98,8 +98,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import com.example.parkmate.ui.photo.FullScreenPhotoDialog
-import com.example.parkmate.ui.photo.PhotoThumbnail
+import com.example.parkmate.data.photo.FullScreenPhotoDialog
+import com.example.parkmate.data.photo.PhotoThumbnail
 import com.example.parkmate.ui.theme.Spacing
 import com.example.parkmate.ui.theme.extendedColors
 import com.example.parkmate.ui.vehicles.icon

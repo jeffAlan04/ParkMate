@@ -50,8 +50,8 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.parkmate.data.local.entity.ParkingType
 import com.example.parkmate.data.local.entity.SavedLocation
-import com.example.parkmate.ui.location.LocationViewModel
-import com.example.parkmate.ui.location.LocationViewModelFactory
+import com.example.parkmate.ui.map.LocationViewModel
+import com.example.parkmate.ui.map.LocationViewModelFactory
 import com.example.parkmate.ui.parking.ActiveSessionDisplay
 import com.example.parkmate.ui.parking.ParkingViewModel
 import com.example.parkmate.ui.parking.ParkingViewModelFactory

@@ -45,13 +45,15 @@ import com.google.maps.android.heatmaps.Gradient
 import com.google.maps.android.heatmaps.HeatmapTileProvider
 import kotlin.math.roundToInt
 
+// Posizione predefinita per la mappa
 private val DEFAULT_POSITION = LatLng(44.4949, 11.3426)
 
-
+// Schermata principale delle statistiche e visualizzazione dati
 @Composable
 fun DataVisualizationScreen(
     viewModel: DataViewModel = viewModel(factory = DataViewModelFactory)
 ) {
+    // Osservazione degli stati aggregati dal ViewModel
     val heatmapPoints by viewModel.heatmapPoints.collectAsState()
     val costByType by viewModel.costByType.collectAsState()
     val totalCost by viewModel.totalCost.collectAsState()
@@ -79,8 +81,10 @@ fun DataVisualizationScreen(
                 .padding(bottom = Spacing.xl),
             verticalArrangement = Arrangement.spacedBy(Spacing.lg)
         ) {
+            // Riepilogo spesa totale e numero parcheggi
             TotalSpendingHero(totalCost = totalCost, totalCount = totalCount)
 
+            // Heatmap
             StatSection(title = "Dove parcheggi") {
                 if (heatmapPoints.isEmpty()) {
                     EmptyText("Nessun parcheggio registrato")
@@ -95,6 +99,7 @@ fun DataVisualizationScreen(
                 }
             }
 
+            // Bar chart della frequenza per tipologia
             StatSection(title = "Parcheggi per tipo") {
                 if (countByType.isEmpty() || totalCount == 0) {
                     EmptyText("Nessun parcheggio registrato")
@@ -103,6 +108,7 @@ fun DataVisualizationScreen(
                 }
             }
 
+            // Suddivisione dei costi
             StatSection(title = "Spesa per tipo") {
                 if (costByType.isEmpty() || costByType.sumOf { it.totalCost } == 0.0) {
                     EmptyText("Nessuna spesa registrata")
@@ -115,6 +121,7 @@ fun DataVisualizationScreen(
 }
 
 
+// Hero per la spesa totale e il numero di sessioni completate
 @Composable
 private fun TotalSpendingHero(totalCost: Double, totalCount: Int) {
     val onHero = MaterialTheme.colorScheme.onPrimaryContainer
@@ -140,6 +147,8 @@ private fun TotalSpendingHero(totalCost: Double, totalCount: Int) {
         )
     }
 }
+
+// Container per ogni sezione statistica
 @Composable
 private fun StatSection(title: String, content: @Composable ColumnScope.() -> Unit) {
     val shape = MaterialTheme.shapes.large
@@ -162,16 +171,18 @@ private fun EmptyText(text: String) {
     Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
+// Mappa di Google che visualizza una Heatmap
 @Composable
 private fun ParkingHeatMap(points: List<LatLng>, modifier: Modifier = Modifier) {
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(points.firstOrNull() ?: DEFAULT_POSITION, 13f)
     }
 
+    // Provider per la mappa di calore
     val tileProvider = remember(points) {
         HeatmapTileProvider.Builder()
             .data(points)
-            .radius(40)
+            .radius(40) // Raggio di influenza di ogni punto
             .gradient(
                 Gradient(
                     intArrayOf(
@@ -192,6 +203,7 @@ private fun ParkingHeatMap(points: List<LatLng>, modifier: Modifier = Modifier) 
     }
 }
 
+// Barchart per confrontare il numero di parcheggi per tipologia.
 @Composable
 private fun ParkingCountBarChart(data: List<TypeCount>, modifier: Modifier = Modifier) {
     val maxCount = data.maxOf { it.count }
@@ -203,6 +215,7 @@ private fun ParkingCountBarChart(data: List<TypeCount>, modifier: Modifier = Mod
             verticalAlignment = Alignment.Bottom
         ) {
             data.forEach { item ->
+                // Calcola l'altezza proporzionale della barra
                 val ratio = item.count.toFloat() / maxCount.toFloat()
                 Column(
                     modifier = Modifier.weight(1f),
@@ -220,7 +233,6 @@ private fun ParkingCountBarChart(data: List<TypeCount>, modifier: Modifier = Mod
                             .height((maxBarHeight * ratio).coerceAtLeast(2.dp))
                             .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
                             .background(typeColor(item.label))
-
                     )
                 }
             }
@@ -228,6 +240,7 @@ private fun ParkingCountBarChart(data: List<TypeCount>, modifier: Modifier = Mod
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Spacer(Modifier.height(Spacing.sm))
 
+        // Etichette sotto ogni barra
         Row(modifier = Modifier.fillMaxWidth()) {
             data.forEach { item ->
                 Text(
@@ -242,11 +255,13 @@ private fun ParkingCountBarChart(data: List<TypeCount>, modifier: Modifier = Mod
     }
 }
 
+// Distribuzione dei costi tramite barre di progresso orizzontali
 @Composable
 private fun SpendingBreakdown(data: List<CostAggregation>) {
     val total = data.sumOf { it.totalCost }
 
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
+        // Ordina dalla categoria più costosa
         data.sortedByDescending { it.totalCost }.forEach { item ->
             val share = (item.totalCost / total).toFloat()
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
@@ -271,6 +286,7 @@ private fun SpendingBreakdown(data: List<CostAggregation>) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+                // Barra di sfondo
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -278,6 +294,7 @@ private fun SpendingBreakdown(data: List<CostAggregation>) {
                         .clip(RoundedCornerShape(4.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant)
                 ) {
+                    // Barra di riempimento colorata in base al tipo
                     Box(
                         modifier = Modifier
                             .fillMaxWidth(share)
@@ -290,6 +307,7 @@ private fun SpendingBreakdown(data: List<CostAggregation>) {
         }
     }
 }
+
 @Composable
 private fun typeColor(label: String): Color {
     val dark = isSystemInDarkTheme()

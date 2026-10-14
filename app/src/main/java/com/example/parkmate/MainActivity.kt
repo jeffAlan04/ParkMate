@@ -40,45 +40,66 @@ import android.content.Intent
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
+// Activity principale
 class MainActivity : ComponentActivity() {
+    // ID della posizione da cui avviare un parcheggio
     private var startLocationId by mutableStateOf<Long?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Abilita la visualizzazione a tutto schermo
         enableEdgeToEdge()
+        
+        // Se l'attività viene creata da zero, controlla se c'è un luogo preselezionato nell'Intent
         if (savedInstanceState == null) readStartLocation(intent)
+        
         setContent {
             ParkMateTheme {
+                // Richiede il permesso per le notifiche
                 RequestNotificationPermission()
+                
+                // Punto di ingresso dell'interfaccia Compose
                 ParkMateApp(startLocationId = startLocationId)
             }
         }
     }
 
+    // Gestisce il caso in cui l'app sia già aperta e venga cliccata una notifica
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         readStartLocation(intent)
     }
 
+    // Estrae l'ID della posizione dagli
     private fun readStartLocation(intent: Intent) {
         startLocationId = intent.getLongExtra(EXTRA_START_LOCATION_ID, -1).takeIf { it != -1L }
     }
 
-    companion object { const val EXTRA_START_LOCATION_ID = "startLocationId" }
+    companion object { 
+        // Chiave utilizzata per passare l'ID del luogo tramite Intent
+        const val EXTRA_START_LOCATION_ID = "startLocationId" 
+    }
 }
 
+// Modello dati per gli elementi della barra di navigazione inferiore
 private data class BottonNavItem(val route: Routes, val label: String, val icon: ImageVector)
+
+// Composable che definisce la struttura dell'app con navigazione e BottomBar
 @Composable
 fun ParkMateApp(startLocationId: Long? = null) {
     RequestNotificationPermission()
 
     val navController = rememberNavController()
 
+    // Effect per navigare alla schermata Parcheggi se è stato passato un luogo specifico
     LaunchedEffect(startLocationId) {
         if (startLocationId != null)
             navController.navigate(Routes.StartPark)
     }
+
+    // Elenco delle destinazioni principali nella barra di navigazione
     val bottomNavItems = listOf(
         BottonNavItem(Routes.VehiclesList, "Veicoli", Icons.Default.DirectionsCar),
         BottonNavItem(Routes.StartPark, "Parcheggi", Icons.Default.LocalParking),
@@ -89,11 +110,13 @@ fun ParkMateApp(startLocationId: Long? = null) {
 
     Scaffold(
         bottomBar = {
-            NavigationBar{
+            NavigationBar {
+                // Osserva la destinazione corrente per evidenziare l'icona corretta
                 val currentBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentDestination = currentBackStackEntry?.destination
 
                 bottomNavItems.forEach { item ->
+                    // Controlla se la rotta dell'item è presente nella gerarchia di navigazione attuale
                     val selected = currentDestination?.hierarchy?.any {
                         it.hasRoute(item.route::class)
                     } == true
@@ -102,6 +125,7 @@ fun ParkMateApp(startLocationId: Long? = null) {
                         selected = selected,
                         onClick = {
                             navController.navigate(item.route) {
+                                // Evita di accumulare istanze della stessa schermata nel backstack
                                 popUpTo(navController.graph.findStartDestination().id) {
                                     saveState = true
                                 }
@@ -110,27 +134,31 @@ fun ParkMateApp(startLocationId: Long? = null) {
                             }
                         },
                         icon = { Icon(item.icon, contentDescription = item.label)},
-                        label = {Text(item.label)}
+                        label = { Text(item.label) }
                     )
                 }
             }
         }
     ) { innerPadding ->
+        // Componente che gestisce le transizioni tra le diverse schermate dell'app
         NavGraph(
             navController = navController,
             startLocationId = startLocationId,
-            modifier = Modifier.padding(innerPadding))
+            modifier = Modifier.padding(innerPadding)
+        )
     }
 }
 
+// Composable per la richiesta del permesso POST_NOTIFICATIONS
 @Composable
 fun RequestNotificationPermission() {
     val context = LocalContext.current
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { }
+    ) { /* L'app funzionerà senza avvisi */ }
 
     LaunchedEffect(Unit) {
+        // Permesso per le notifiche
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 

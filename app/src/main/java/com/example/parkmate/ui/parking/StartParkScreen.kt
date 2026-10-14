@@ -1,8 +1,6 @@
 package com.example.parkmate.ui.parking
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -85,7 +83,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Event
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.ButtonDefaults
@@ -309,8 +306,7 @@ fun StartParkScreen (
 
                 // Se non si hanno le coordinate, forza una lettura del GPS
                 scope.launch {
-                    val fusedClient = LocationServices.getFusedLocationProviderClient(context)
-                    val coordinates = LocationProvider(fusedClient).getCurrentLocation()
+                    val coordinates = viewModel.getCurrentLocation()
                     if (coordinates != null) {
                         startSession(vehicle.id, coordinates.latitude, coordinates.longitude)
                     } else {

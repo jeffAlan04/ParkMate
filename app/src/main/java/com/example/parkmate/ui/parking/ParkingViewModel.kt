@@ -9,6 +9,7 @@ import com.example.parkmate.data.repository.LocationRepository
 import com.example.parkmate.data.repository.ParkingRepository
 import com.example.parkmate.data.repository.VehicleRepository
 import com.example.parkmate.data.local.entity.SavedLocation
+import com.example.parkmate.data.local.entity.computeCost
 import com.example.parkmate.data.location.LocationCoordinates
 import com.example.parkmate.data.location.LocationProvider
 import com.example.parkmate.notification.ParkingAlarmScheduler
@@ -111,14 +112,7 @@ class ParkingViewModel(
             val elapsed = now - session.startTime
 
             // Calcolo del costo corrente in base al tipo di parcheggio
-            val cost = when (session.type) {
-                ParkingType.HOURLY -> session.hourlyRate?.let { rate ->
-                    val hourElapesd = elapsed / 3600000.0
-                    hourElapesd * rate
-                }
-                ParkingType.TICKET -> session.fixedCost
-                ParkingType.FREE -> null
-            }
+            val cost = session.computeCost(now).takeIf { session.type != ParkingType.FREE }
 
             val remaining = session.expiryTime?.let { it - now }
             // Creazione  dell'oggetto per l'interfaccia

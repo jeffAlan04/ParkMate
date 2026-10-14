@@ -14,8 +14,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -31,10 +29,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.parkmate.data.local.entity.Vehicle
@@ -71,11 +67,12 @@ import java.util.Calendar
 import java.io.File
 import android.Manifest
 import android.content.pm.PackageManager
-import android.location.Location
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.imePadding
@@ -85,20 +82,18 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ConfirmationNumber
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.LocationOff
-import androidx.compose.material.icons.filled.Map
-import androidx.compose.material.icons.filled.MoneyOff
-import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -333,7 +328,11 @@ fun StartParkScreen (
             attemptStartParking(coroutineScope)
         }
     }
-    
+
+    BackHandler(enabled = summarySession != null) {
+        summaryVehicleId = null
+    }
+
     // INTERFACCIA UTENTE
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -350,7 +349,7 @@ fun StartParkScreen (
             ) {
                 ScreenHeader(
                     title = "Parcheggio in corso",
-                    subtitle = ""
+                    onBack = { summaryVehicleId = null }
                 )
                 ActiveSessionSummary(
                     display = summarySession,
@@ -398,10 +397,7 @@ fun StartParkScreen (
                         .weight(1f)
                         .verticalScroll(rememberScrollState())
                 ) {
-                    ScreenHeader(
-                        title = "Nuovo parcheggio",
-                        subtitle = ""
-                    )
+                    ScreenHeader(title = "Nuovo parcheggio")
                     Column(
                         modifier = Modifier
                             .padding(horizontal = Spacing.screenHorizontal)
@@ -431,13 +427,6 @@ fun StartParkScreen (
                                     }
                                 }
                             }
-                            if (activeSessionForSelectedVechicle != null) {
-                                InfoBanner(
-                                    text = "Questo veicolo ha già un parcheggio in corso",
-                                    actionLabel = "Vedi",
-                                    onAction = { summaryVehicleId = selectedVehicle?.id }
-                                )
-                            }
                         }
                         // Posizione
                         FormSection(title = "Posizione") {
@@ -448,7 +437,7 @@ fun StartParkScreen (
                                     selected = locationSource == LocationSource.CURRENT,
                                     onClick = { locationSource = LocationSource.CURRENT },
                                     shape = SegmentedButtonDefaults.itemShape(0, 2)
-                                )  { Text("Posizione Attuale", maxLines = 1) }
+                                )  { Text("Attuale", maxLines = 1) }
 
                                 // Salvata
                                 SegmentedButton(
@@ -468,17 +457,12 @@ fun StartParkScreen (
                                         text = "Rilevamento della posizione",
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                    manualCoordinates != null -> LocationStatusRow(
-                                        text = "Posizione regolata sulla mappa",
-                                        tint = MaterialTheme.colorScheme.secondary
-                                    )
-                                    else -> LocationStatusRow(
-                                        text = "Posizione rilevata",
-                                        tint = MaterialTheme.colorScheme.secondary
-                                    )
                                 }
                                 if (baseCoordinates != null) {
-                                    TextButton(onClick = {showMapAdjustment = !showMapAdjustment}) {
+                                    TextButton(
+                                        onClick = {showMapAdjustment = !showMapAdjustment},
+                                        contentPadding = PaddingValues(horizontal = 0.dp)
+                                    ) {
                                         Text(
                                             if (showMapAdjustment)
                                                 "Nascondi mappa"
@@ -681,13 +665,30 @@ fun StartParkScreen (
     }
 }
 @Composable
-private fun ScreenHeader(title: String, subtitle: String) {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenHorizontal).padding(top = Spacing.xl, bottom = Spacing.lg)
+private fun ScreenHeader(title: String, subtitle: String? = null, onBack: (() -> Unit)? = null) {
+
+    Row(
+        modifier = Modifier.fillMaxWidth()
+            .padding(
+                start = if (onBack != null) Spacing.xs else Spacing.screenHorizontal,
+                end = Spacing.screenHorizontal
+            )
+            .padding(top = Spacing.xl, bottom = Spacing.lg),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(title, style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
-        Spacer(Modifier.height(Spacing.xs))
-        Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (onBack != null) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Default.ArrowBack, contentDescription = "Indietro")
+            }
+            Spacer(Modifier.width(Spacing.xs))
+        }
+        Column{
+            Text(title, style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
+            if (subtitle != null) {
+                Spacer(Modifier.height(Spacing.xs))
+                Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
     }
 }
 
@@ -717,32 +718,6 @@ private fun FormSection(
         content()
     }
 }
-
-@Composable
-private fun InfoBanner(text: String, actionLabel: String, onAction: () -> Unit) {
-    val colors = MaterialTheme.extendedColors
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(MaterialTheme.shapes.medium)
-            .background(colors.warningContainer)
-            .padding(start = Spacing.md, end = Spacing.xs, top = Spacing.xs, bottom = Spacing.xs),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(Icons.Default.Info, contentDescription = null, tint = colors.onWarningContainer, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.width(Spacing.sm))
-        Text(
-            text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = colors.onWarningContainer,
-            modifier = Modifier.weight(1f)
-        )
-        TextButton(onClick = onAction) {
-            Text(actionLabel, color = colors.onWarningContainer)
-        }
-    }
-}
-
 @Composable
 private fun LocationStatusRow(text: String, tint: Color) {
     Text(text, style = MaterialTheme.typography.bodyMedium, color = tint)
@@ -914,7 +889,10 @@ private fun LocationAdjustmentMap(
         }
 
         if (isOverriden) {
-            TextButton(onClick = onResetOverride) {
+            TextButton(
+                onClick = onResetOverride,
+                contentPadding = PaddingValues(horizontal = 0.dp)
+            ) {
                 Text("Ripristina posizione")
             }
         }

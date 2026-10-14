@@ -99,24 +99,28 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.example.parkmate.ui.photo.FullScreenPhotoDialog
 import com.example.parkmate.ui.photo.PhotoThumbnail
 import com.example.parkmate.ui.common.formatPrice
+import com.example.parkmate.ui.common.toPriceOrNull
 import com.example.parkmate.ui.theme.Spacing
 import com.example.parkmate.ui.theme.extendedColors
 import com.example.parkmate.ui.vehicles.icon
+import com.example.parkmate.ui.common.formatElapsedDuration
 
 private enum class LocationSource { CURRENT, SAVED }
 
+// Schermata principale per l'avvio di un parcheggio e la visualizzazione di una sessione attiva.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StartParkScreen (
     viewModel: ParkingViewModel = viewModel(factory = ParkingViewModelFactory),
-    initialLocationId: Long? = null,
+    initialLocationId: Long? = null, // ID opzionale per preselezionare un luogo salvato
     onParkingStarted: () -> Unit = {} // Callback richiamata dopo il salvataggio
 ) {
+    // Osservazione degli stati dal ViewModel
     val vehicles by viewModel.vehicles.collectAsState()
     val savedLocations by viewModel.savedLocations.collectAsState()
     val activeSessions by viewModel.activeSessions.collectAsState()
 
-    // Dati del form
+    // Stato locale per i campi del form di inserimento
     var selectedVehicle by remember { mutableStateOf<Vehicle?>(null) }
     var selectedType by remember { mutableStateOf(ParkingType.FREE) }
     var hourlyRate by remember { mutableStateOf("") }
@@ -125,17 +129,18 @@ fun StartParkScreen (
     var warningMinutesBefore by remember { mutableStateOf(15) }
     var note by remember { mutableStateOf("") }
 
+    // Gestione della sorgente di posizione
     var locationSource by remember { mutableStateOf(LocationSource.CURRENT) }
     var selectedSavedLocation by remember { mutableStateOf<SavedLocation?>(null) }
 
     var baseCoordinates by remember { mutableStateOf<Pair<Double, Double>?>(null) }
-    // Coordinate modificate manualmente
     var manualCoordinates by remember { mutableStateOf<Pair<Double, Double>?>(null) }
     var showMapAdjustment by remember { mutableStateOf(false) }
 
-    // Coordinate manuali preferite a quelle base
+    // Coordinate definitive da salvare
     val finalCoordinates = manualCoordinates ?: baseCoordinates
 
+    // Calcolo dei valori effettivi in base alla sorgente di posizione scelta
     val effectiveType = when (locationSource) {
         LocationSource.SAVED -> selectedSavedLocation?.parkingType ?: selectedType
         LocationSource.CURRENT -> selectedType
@@ -151,7 +156,7 @@ fun StartParkScreen (
         LocationSource.CURRENT -> fixedCost.toPriceOrNull()
     }
 
-    // Flag per riprovare l'avvio dopo la richiesta di permesso
+    // Gestione permessi e coroutine per operazioni asincrone
     var pendingStartAfterPermission by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
@@ -159,21 +164,24 @@ fun StartParkScreen (
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
+    // Gestione scatto foto
     var photoPath by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingPhotoPath by rememberSaveable { mutableStateOf<String?>(null) }
     var fullScreenPhoto by remember { mutableStateOf<String?>(null) }
 
-    val takePictureLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) {
-        success -> val newPath = pendingPhotoPath
+    // Launcher per scattare una foto
+    val takePictureLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success -> 
+        val newPath = pendingPhotoPath
         if (success && newPath != null) {
-            photoPath?.let { File(it).delete() }
+            photoPath?.let { File(it).delete() } // Elimina vecchia foto se esistente
             photoPath = newPath
         } else {
-            newPath?.let { File(it).delete() }
+            newPath?.let { File(it).delete() } // Pulisce file temporaneo se annullato
         }
         pendingPhotoPath = null
     }
 
+    // Prepara il file e lancia l'app fotocamera di sistema.
     fun launchCamera() {
         val file = createPhotoFile(context)
         pendingPhotoPath = file.absolutePath
@@ -181,14 +189,13 @@ fun StartParkScreen (
         takePictureLauncher.launch(uri)
     }
 
-    val cameraPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-        granted ->
-        if (granted)
-            launchCamera()
-        else
-            coroutineScope.launch { snackbarHostState.showSnackbar("Permesso fotocamera negato") }
+    // Gestore permessi fotocamera
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) launchCamera()
+        else coroutineScope.launch { snackbarHostState.showSnackbar("Permesso fotocamera negato") }
     }
 
+    // Avvia la procedura per scattare una foto controllando i permessi.
     fun onTakePhoto() {
         val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         if (granted)
@@ -202,6 +209,7 @@ fun StartParkScreen (
         activeSessions.find { it.session.vehicleId == vehicle.id }
     }
 
+    // Stato per la visualizzazione del riepilogo di un parcheggio in corso
     var summaryVehicleId by remember { mutableStateOf<Long?>(null) }
 
     val summarySession = summaryVehicleId?.let { id ->
@@ -210,8 +218,10 @@ fun StartParkScreen (
 
     var handledLocationId by remember { mutableStateOf<Long?>(null) }
 
+    //Verifica se un determinato veicolo ha una sessione attiva
     fun hasActiveSession(vehicle: Vehicle) = activeSessions.any { it.session.vehicleId == vehicle.id }
 
+    // Resetta i campi del form alle impostazioni predefinite.
     fun resetForm() {
         selectedType = ParkingType.FREE
         hourlyRate = ""
@@ -222,7 +232,7 @@ fun StartParkScreen (
         showMapAdjustment = false
     }
 
-    // Aggiorna le coordinate base ogni vola che cambia la sorgente o i permessi
+    // Aggiorna le coordinate base ogni volta che cambia la sorgente o i permessi
     LaunchedEffect(locationSource, selectedSavedLocation, permissionStatus) {
         manualCoordinates = null
         baseCoordinates = when (locationSource) {
@@ -238,6 +248,7 @@ fun StartParkScreen (
         }
     }
 
+    // Effect per gestire l'avvio da una notifica di geofence
     LaunchedEffect(initialLocationId, savedLocations) {
         if (initialLocationId != null && initialLocationId != handledLocationId) {
             savedLocations.find { it.id == initialLocationId }?.let { location ->
@@ -248,11 +259,13 @@ fun StartParkScreen (
         }
     }
 
+    // Se c'è un solo veicolo lo seleziona automaticamente
     LaunchedEffect(vehicles) {
         if (selectedVehicle == null && vehicles.size == 1)
             selectedVehicle = vehicles.first()
     }
 
+    // Avvia effettivamente la sessione nel ViewModel.
     fun startSession(vehicleId: Long, lat: Double, lng: Double) {
         viewModel.startParking(
             vehicleId = vehicleId,
@@ -322,6 +335,7 @@ fun StartParkScreen (
         }
     }
 
+    // Tasto back per uscire dalla vista di riepilogo
     BackHandler(enabled = summarySession != null) {
         summaryVehicleId = null
     }
@@ -334,6 +348,7 @@ fun StartParkScreen (
     ) { innerPadding ->
 
         if (summarySession != null) {
+            // VISTA RIEPILOGO PARCHEGGIO IN CORSO
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -362,14 +377,15 @@ fun StartParkScreen (
                 )
             }
         } else {
+            // VISTA FORM NUOVO PARCHEGGIO
             val ticketExpiryValid = effectiveType != ParkingType.TICKET || (expiryTime?.let { it > System.currentTimeMillis() } == true)
-            // Bottone di avvio/termine
 
             val canSave = selectedVehicle != null &&
                     activeSessionForSelectedVechicle == null &&
                     ticketExpiryValid &&
                     (locationSource == LocationSource.CURRENT || selectedSavedLocation != null)
 
+            // Messaggi di errore
             val blockingReason = when {
                 vehicles.isEmpty() -> "Aggiungi un veicolo"
                 selectedVehicle == null -> "Seleziona un veicolo"
@@ -397,6 +413,7 @@ fun StartParkScreen (
                             .padding(bottom = Spacing.lg),
                         verticalArrangement = Arrangement.spacedBy(Spacing.lg)
                     ) {
+                        // VEICOLO
                         FormSection(title = "Veicolo") {
                             if (vehicles.isEmpty()) {
                                 Text(
@@ -421,7 +438,7 @@ fun StartParkScreen (
                                 }
                             }
                         }
-                        // Posizione
+                        // POSIZIONE
                         FormSection(title = "Posizione") {
                             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
 
@@ -439,7 +456,7 @@ fun StartParkScreen (
                                     shape = SegmentedButtonDefaults.itemShape(1, 2)
                                 ) { Text("Luogo Salvato", maxLines = 1) }
                             }
-                            // Pulsante per mostrare la mappa e regolare la posizione GPS
+                            // Bottone per mostrare la mappa e regolare la posizione
                             if (locationSource == LocationSource.CURRENT) {
                                 when {
                                     permissionStatus != LocationPermissionStatus.GRANTED -> LocationStatusRow(
@@ -494,7 +511,7 @@ fun StartParkScreen (
                                 }
                             }
                         }
-                        // Tariffa
+                        // TARIFFA
                         FormSection(title = "Tariffa") {
                             if (locationSource == LocationSource.CURRENT) {
                                 Row(
@@ -539,7 +556,7 @@ fun StartParkScreen (
                                 }
                             }
                         }
-                        // Scadenza
+                        // SCADENZA
                         AnimatedVisibility(visible = effectiveType == ParkingType.TICKET) {
                             FormSection(title = "Scadenza del ticket") {
                                 ExpiryTimePicker(expiryTime = expiryTime, onExpirySelected = { expiryTime = it})
@@ -578,12 +595,12 @@ fun StartParkScreen (
                                 }
                             }
                         }
-                        // Dettagli
+                        // DETTAGLI (Nota e Foto)
                         FormSection(
                             title = "Dettagli",
                             subtitle = "Facoltativi"
                         ) {
-                            // Nota
+                            // NOTA
                             OutlinedTextField(
                                 value = note,
                                 onValueChange = { note = it },
@@ -594,7 +611,7 @@ fun StartParkScreen (
                                 modifier = Modifier.fillMaxWidth()
                             )
 
-                            // Foto
+                            // FOTO
                             val currentPhoto = photoPath
                             if (currentPhoto == null) {
                                 OutlinedButton(
@@ -653,10 +670,13 @@ fun StartParkScreen (
             }
         }
     }
+    // Dialog per la visualizzazione della foto a pieno schermo
     fullScreenPhoto?.let { path ->
         FullScreenPhotoDialog(path = path, onDismiss =  { fullScreenPhoto = null })
     }
 }
+
+// Screen header
 @Composable
 private fun ScreenHeader(title: String, subtitle: String? = null, onBack: (() -> Unit)? = null) {
 
@@ -685,6 +705,7 @@ private fun ScreenHeader(title: String, subtitle: String? = null, onBack: (() ->
     }
 }
 
+// Container per le diverse sezioni del form
 @Composable
 private fun FormSection(
     title: String,
@@ -711,11 +732,14 @@ private fun FormSection(
         content()
     }
 }
+
+// Mostra lo stato del rilevamento GPS.
 @Composable
 private fun LocationStatusRow(text: String, tint: Color) {
     Text(text, style = MaterialTheme.typography.bodyMedium, color = tint)
 }
 
+// Opzione selezionabile per il veicolo
 @Composable
 private fun VehicleOption(vehicle: Vehicle, selected: Boolean, isParked: Boolean, onClick: () -> Unit) {
     val shape = MaterialTheme.shapes.medium
@@ -754,7 +778,7 @@ private fun VehicleOption(vehicle: Vehicle, selected: Boolean, isParked: Boolean
     }
 }
 
-// Card per selezionare il tipo di parcheggio
+// Opzione per la scelta del tipo di parcheggio
 @Composable
 private fun ParkingTypeOption(type: ParkingType, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val shape = MaterialTheme.shapes.medium
@@ -779,6 +803,7 @@ private fun ParkingTypeOption(type: ParkingType, selected: Boolean, onClick: () 
     }
 }
 
+// Campo per l'inserimento di prezzi
 @Composable
 private fun PriceField(value: String, onValueChange: (String) -> Unit, label: String, suffix: String? = null) {
     OutlinedTextField(
@@ -796,6 +821,7 @@ private fun PriceField(value: String, onValueChange: (String) -> Unit, label: St
     )
 }
 
+// Riepilogo testuale del costo precedentemente inserito per un luogo salvato.
 @Composable
 private fun SavedLocationCostSumamry(location: SavedLocation) {
     Column(
@@ -821,6 +847,7 @@ private fun SavedLocationCostSumamry(location: SavedLocation) {
     }
 }
 
+// Pulsante per aprire i dialoghi di sistema per scegliere data e ora di scadenza del ticket
 @Composable
 private fun ExpiryTimePicker(expiryTime: Long?, onExpirySelected: (Long) -> Unit) {
     val context = LocalContext.current
@@ -857,7 +884,7 @@ private fun ExpiryTimePicker(expiryTime: Long?, onExpirySelected: (Long) -> Unit
 @Composable
 private fun LocationAdjustmentMap(
     coordinates: Pair<Double, Double>?,
-    isOverriden: Boolean, // Indica se l'utente ha spostato manualmente il marker
+    isOverriden: Boolean, // Vero se l'utente ha spostato manualmente il marker
     onMapClick: (Double, Double) -> Unit,
     onResetOverride: () -> Unit
 ) {
@@ -892,6 +919,7 @@ private fun LocationAdjustmentMap(
     }
 }
 
+// Riepilogo completo di una sessione di parcheggio attiva.
 @Composable
 private fun ActiveSessionSummary(
     display: ActiveSessionDisplay,
@@ -923,7 +951,7 @@ private fun ActiveSessionSummary(
             }
         }
 
-        // Card principale: veicolo, tempo, costo
+        // Card principale con veicolo, tempo, costo
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -986,6 +1014,7 @@ private fun ActiveSessionSummary(
             }
         }
 
+        // Pulsanti di azione
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             Button(
                 onClick = onEndParking,
@@ -1022,7 +1051,7 @@ private fun ActiveSessionSummary(
 }
 
 
-// Mostra le informazioni in tempo reale di un parcheggio attivo (tempo e costo).
+// Mostra le informazioni in tempo reale di un parcheggio attivo .
 @Composable
 private fun ParkingTrackerInfo(display: ActiveSessionDisplay) {
     val isTicket = display.session.type == ParkingType.TICKET
@@ -1075,6 +1104,7 @@ private fun ParkingTrackerInfo(display: ActiveSessionDisplay) {
     }
 }
 
+// Riga di dettaglio
 @Composable
 private fun DetailRow(icon: ImageVector, label: String, value: String) {
     Row(verticalAlignment = Alignment.Top) {
@@ -1095,18 +1125,4 @@ private fun formFieldColors() = OutlinedTextFieldDefaults.colors(
     unfocusedBorderColor = MaterialTheme.colorScheme.outline
 )
 
-private fun String.toPriceOrNull(): Double? = trim().replace(',', '.').toDoubleOrNull()
 
-// Formatta un valore in millisecondi in una stringa leggibile
-private fun formatElapsedDuration(millis: Long): String {
-    val totalSeconds = millis / 1000
-    val hours = totalSeconds / 3600
-    val minutes = (totalSeconds % 3600) / 60
-    val seconds = totalSeconds % 60
-
-    return if (hours > 0) {
-        String.format(Locale.ITALY, "%d:%02d:%02d", hours, minutes, seconds)
-    } else {
-        String.format(Locale.ITALY, "%02d:%02d", minutes, seconds)
-    }
-}

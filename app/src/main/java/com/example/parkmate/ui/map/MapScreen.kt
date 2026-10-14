@@ -75,28 +75,35 @@ import com.example.parkmate.ui.common.toPriceOrNull
 import com.example.parkmate.ui.parking.label
 import com.example.parkmate.ui.theme.Spacing
 
-private enum class MapMode {SAVED_LOCATIONS, ACTIVE_SESSIONS}
+// Modalità di visualizzazione della mappa.
+private enum class MapMode { SAVED_LOCATIONS, ACTIVE_SESSIONS }
+
+// Posizione di default centrata su Bologna
 private val DEFAULT_POSITION = LatLng(44.4949, 11.3426)
 
+// Modelli per gestire l'aggiunta o la modifica di un luogo
 private sealed class LocationFormMode {
     data class Add(val latitude: Double, val longitude: Double) : LocationFormMode()
     data class Edit(val location: SavedLocation) : LocationFormMode()
 }
 
+// Schermata della mappa principale.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapScreen(
     parkingViewModel: ParkingViewModel = viewModel(factory = ParkingViewModelFactory),
     mapViewModel: MapViewModel = viewModel(factory = MapViewModelFactory)
 ) {
-
+    // Osservazione degli stati dal ViewModel
     val activeSessions by parkingViewModel.activeSessions.collectAsState()
     val savedLocation by mapViewModel.locations.collectAsState()
 
+    // Stato per gestire la selezione di un parcheggio o l'apertura del form
     var selectedSession by remember { mutableStateOf<ActiveSessionDisplay?>(null) }
     var formMode by remember { mutableStateOf<LocationFormMode?>(null) }
     var mapMode by remember { mutableStateOf(MapMode.SAVED_LOCATIONS) }
 
+    // Posizione iniziale della telecamera in base alla modalità
     val initialPosition = when (mapMode) {
         MapMode.ACTIVE_SESSIONS -> activeSessions.firstOrNull()?.let { LatLng(it.session.latitude, it.session.longitude) } ?: DEFAULT_POSITION
         MapMode.SAVED_LOCATIONS -> savedLocation.firstOrNull()?.let { LatLng(it.latitude, it.longitude) }
@@ -106,6 +113,7 @@ fun MapScreen(
         position = CameraPosition.fromLatLngZoom(initialPosition, 14f)
     }
 
+    // Effect per centrare la mappa quando si cambia modalità
     LaunchedEffect(mapMode) {
         cameraPositionState.position = CameraPosition.fromLatLngZoom(initialPosition, 14f)
     }
@@ -113,6 +121,7 @@ fun MapScreen(
     Column(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
     ) {
+        // Titolo
         Text(
             "Mappa",
             style = MaterialTheme.typography.headlineMedium,
@@ -122,6 +131,7 @@ fun MapScreen(
                 .padding(top = Spacing.xl, bottom = Spacing.lg)
         )
 
+        // Selettore per cambiare tra le due modalità
         SingleChoiceSegmentedButtonRow(
             modifier = Modifier.fillMaxWidth()
                 .padding(horizontal = Spacing.screenHorizontal)
@@ -139,17 +149,21 @@ fun MapScreen(
                 shape = SegmentedButtonDefaults.itemShape(1, 2)
             ) { Text("Sessioni attive") }
         }
+
+        // Componente Mappa di Google
         if (formMode == null) {
             GoogleMap(
                 modifier = Modifier.fillMaxSize(),
                 cameraPositionState = cameraPositionState,
                 onMapLongClick = { latLng ->
+                    // Click prolungato per avviare l'aggiunta di un nuovo luogo
                     if (mapMode == MapMode.SAVED_LOCATIONS) {
                         formMode = LocationFormMode.Add(latLng.latitude, latLng.longitude)
                     }
                 }
             ) {
                 when (mapMode) {
+                    // Visualizzazione dei parcheggi attivi
                     MapMode.ACTIVE_SESSIONS -> {
                         activeSessions.forEach { display ->
                             val position = LatLng(display.session.latitude, display.session.longitude)
@@ -159,13 +173,14 @@ fun MapScreen(
                                 title = display.vehicleName,
                                 icon = BitmapDescriptorFactory.defaultMarker(2f),
                                 onClick = {
-                                    selectedSession = display
+                                    selectedSession = display // Apre il dettaglio in basso
                                     true
                                 }
                             )
                         }
                     }
 
+                    // Visualizzazione dei luoghi salvati con eventuali cerchi di Geofencing
                     MapMode.SAVED_LOCATIONS -> {
                         savedLocation.forEach { location ->
                             val position = LatLng(location.latitude, location.longitude)
@@ -175,11 +190,12 @@ fun MapScreen(
                                 title = location.name,
                                 icon = BitmapDescriptorFactory.defaultMarker(markerHueFor(location.parkingType)),
                                 onClick = {
-                                    formMode = LocationFormMode.Edit(location)
+                                    formMode = LocationFormMode.Edit(location) // Apre il modulo di modifica
                                     true
                                 }
                             )
 
+                            // Se il geofence è attivo per questo luogo crea un cerchio sulla mappa
                             if (location.geofenceEnabled) {
                                 Circle(
                                     center = LatLng(location.latitude, location.longitude),
@@ -196,6 +212,7 @@ fun MapScreen(
         }
     }
 
+    // BottomSheet per mostrare i dettagli della sessione selezionata
     selectedSession?.let { display ->
         val sheetState = rememberModalBottomSheetState()
 
@@ -207,6 +224,7 @@ fun MapScreen(
         }
     }
 
+    // BottomSheet per il modulo di inserimento luogo
     formMode?.let { mode ->
         LocationFormSheet(
             mode = mode,
@@ -234,6 +252,7 @@ private fun markerHueFor(type: ParkingType): Float = when (type) {
     ParkingType.TICKET -> 38f
 }
 
+// BottomSheet per gestire la creazione e modifica di una posizione salvata
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LocationFormSheet(
@@ -242,6 +261,7 @@ private fun LocationFormSheet(
     onSave: (name: String, lat: Double, lng: Double, type: ParkingType, hourlyRate: Double?, fixedCost: Double?, geofenceEnabled: Boolean, geofenceRadius: Float) -> Unit,
     onDelete: (() -> Unit)?
 ) {
+    // Caricamento valori iniziali
     val initialLatitude = when (mode) {
         is LocationFormMode.Add -> mode.latitude
         is LocationFormMode.Edit -> mode.location.latitude
@@ -266,6 +286,7 @@ private fun LocationFormSheet(
     var hourlyTouched by remember { mutableStateOf(false) }
     var ticketTouched by remember { mutableStateOf(false) }
 
+    // Gestore per richiedere i permessi di localizzazione
     val requestGeofencePermission = rememberGeofencePermissionRequester { granted ->
         geofenceEnabled = granted
     }
@@ -286,6 +307,7 @@ private fun LocationFormSheet(
                 style = MaterialTheme.typography.titleLarge
             )
 
+            // Mappa interna al modal per spostare il marker
             val markerPosition = remember(latitudeText, longitudeText) {
                 val lat = latitudeText.toDoubleOrNull()
                 val lng = longitudeText.toDoubleOrNull()
@@ -323,6 +345,7 @@ private fun LocationFormSheet(
                 }
             }
 
+            // Campi del form
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
@@ -429,7 +452,7 @@ private fun LocationFormSheet(
                 }
             }
 
-
+            // Validazione pulsante salva
             val canSave = name.isNotBlank() && latitudeText.toDoubleOrNull() != null && longitudeText.toDoubleOrNull() != null && priceValid
 
             Button(
@@ -457,6 +480,8 @@ private fun LocationFormSheet(
                         "Salva modifiche"
                 )
             }
+
+            // Pulsante elimina (visibile solo in modifica)
             onDelete?.let { delete ->
                 TextButton(
                     onClick = delete,
@@ -471,6 +496,7 @@ private fun LocationFormSheet(
     }
 }
 
+// Card per la selezione del tipo di parcheggio nel modal
 @Composable
 private fun LocationTypeCard(
     type: ParkingType,
@@ -505,6 +531,8 @@ private fun LocationTypeCard(
         }
     }
 }
+
+// Dettagli di un parcheggio attivo.
 @Composable
 private fun SessionDetailContent(display: ActiveSessionDisplay) {
     val session = display.session
@@ -553,7 +581,6 @@ private fun SessionDetailContent(display: ActiveSessionDisplay) {
                 value = formatPrice(cost),
                 valueColor = MaterialTheme.colorScheme.primary
             )
-
         }
     }
 }
@@ -578,6 +605,7 @@ private fun SessionInfoRow(
     }
 }
 
+// Gestisce la richiesta dei permessi per il Geofencing
 @Composable
 private fun rememberGeofencePermissionRequester(onResult: (Boolean) -> Unit): () -> Unit {
     val context = LocalContext.current
@@ -587,17 +615,18 @@ private fun rememberGeofencePermissionRequester(onResult: (Boolean) -> Unit): ()
     fun isGranted(permission: String) = ContextCompat.checkSelfPermission(context, permission) ==
         PackageManager.PERMISSION_GRANTED
 
+    // Launcher per la posizione in background
     val backgroundLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { _ -> onResult(isGranted(background)) }
 
+    // Launcher per la posizione precisa
     val fineLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        when{
+        when {
             !granted -> onResult(false)
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> backgroundLauncher.launch(background)
-
             else -> onResult(true)
         }
     }

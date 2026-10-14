@@ -49,13 +49,18 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.parkmate.data.local.entity.VehicleType
 import com.example.parkmate.ui.theme.Spacing
 
+// Schermata che visualizza la lista dei veicoli salvati dall'utente.
+
 @Composable
 fun VehiclesScreen(
     viewModel: VehicleViewModel = viewModel(factory = VehicleViewModelFactory),
-    onAddVehicle: () -> Unit = {},
-    onEditVehicle: (Long) -> Unit = {}
+    onAddVehicle: () -> Unit = {}, // Azione per navigare al form di aggiunta
+    onEditVehicle: (Long) -> Unit = {} // Azione per navigare alla modifica
 ) {
+    // Osserva la lista dei veicoli
     val vehicleItems by viewModel.vehicleItems.collectAsState()
+    
+    // Stato locale per gestire quale veicolo l'utente intende eliminare
     var vehicleToDelete by remember { mutableStateOf<VehicleListItem?>(null) }
 
     Column(
@@ -65,8 +70,8 @@ fun VehiclesScreen(
 
         val list = vehicleItems
         when {
-            list == null -> Unit
-            list.isEmpty() -> EmptyVehicles(modifier = Modifier.weight(1f))
+            list == null -> Unit // Stato di caricamento (vuoto)
+            list.isEmpty() -> EmptyVehicles(modifier = Modifier.weight(1f)) // Stato lista vuota
             else -> LazyColumn(
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(
@@ -76,6 +81,7 @@ fun VehiclesScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
+                // Genera le righe della lista con supporto allo swipe laterale
                 items(list, key = { it.vehicle.id}) { item ->
                     SwipeToDeleteVehicle(
                         item = item,
@@ -86,12 +92,14 @@ fun VehiclesScreen(
             }
         }
     }
+
+    // Dialogo di conferma per l'eliminazione.
     vehicleToDelete?.let { item ->
         DeleteVehicleDialog(
             item = item,
             onConfirm = {
-                viewModel.deleteVehicle(item.vehicle)
-                vehicleToDelete = null
+                viewModel.deleteVehicle(item.vehicle) // Rimuove dal DB
+                vehicleToDelete = null // Chiude il dialogo
             },
             onDismiss = { vehicleToDelete = null }
         )
@@ -123,6 +131,8 @@ private fun VehiclesHeader(items: List<VehicleListItem>?, onAddVehicle: () -> Un
         }
     }
 }
+
+// Swipe per eliminare un veicolo.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SwipeToDeleteVehicle(
@@ -132,17 +142,19 @@ private fun SwipeToDeleteVehicle(
 ) {
     val currentOnDeleteRequest by rememberUpdatedState(onDeleteRequest)
 
+    // Gestione dello stato dello swipe
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.EndToStart)
-                currentOnDeleteRequest()
-            false
+            if (value == SwipeToDismissBoxValue.EndToStart) {
+                currentOnDeleteRequest() // Chiede conferma per l'eliminazione
+            }
+            false // Ritorna sempre alla posizione chiusa
         }
     )
 
     SwipeToDismissBox(
         state = dismissState,
-        enableDismissFromStartToEnd = false,
+        enableDismissFromStartToEnd = false, // Swipe solo da destra verso sinistra
         backgroundContent = {
             val dragging = dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart
             Box(
@@ -150,35 +162,28 @@ private fun SwipeToDeleteVehicle(
                     .fillMaxSize()
                     .clip(MaterialTheme.shapes.large)
                     .background(
-                        if (dragging)
-                            MaterialTheme.colorScheme.errorContainer
-                        else
-                            Color.Transparent)
+                        if (dragging) MaterialTheme.colorScheme.errorContainer 
+                        else Color.Transparent
+                    )
                     .padding(horizontal = Spacing.xl),
                 contentAlignment = Alignment.CenterEnd
             ) {
               if (dragging) {
                   Row(verticalAlignment = Alignment.CenterVertically) {
-                      Text(
-                          "Elimina",
-                          style = MaterialTheme.typography.labelLarge,
-                          color = MaterialTheme.colorScheme.onErrorContainer
-                      )
+                      Text("Elimina", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onErrorContainer)
                       Spacer(Modifier.width(Spacing.sm))
-                      Icon(
-                          Icons.Default.Delete,
-                          contentDescription = null,
-                          tint = MaterialTheme.colorScheme.onErrorContainer
-                      )
+                      Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
                   }
               }
             }
         }
     ) {
+        // La card con le info del veicolo
         VehicleCard(item = item, onClick = onEditVehicle)
     }
 }
 
+// Visualizza le informazioni di un veicolo: icona, nome, targa e badge di stato sosta.
 @Composable
 private fun VehicleCard(item: VehicleListItem, onClick: () -> Unit) {
     val vehicle = item.vehicle
@@ -195,10 +200,12 @@ private fun VehicleCard(item: VehicleListItem, onClick: () -> Unit) {
             modifier = Modifier.padding(Spacing.lg),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Icona del veicolo
             VehicleTypeIcon(type = vehicle.type)
 
             Spacer(Modifier.width(Spacing.lg))
 
+            // Dati testuali
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     vehicle.name,
@@ -209,20 +216,18 @@ private fun VehicleCard(item: VehicleListItem, onClick: () -> Unit) {
                 )
                 vehicle.plateNumber?.takeIf { it.isNotBlank() }?.let { plate->
                     Spacer(Modifier.height(Spacing.xs))
-                    Text(
-                        plate,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Text(plate, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             Spacer(Modifier.width(Spacing.md))
 
+            // Badge che indica se l'auto è attualmente parcheggiata
             ParkingStatusChip(isParked = item.isParked)
         }
     }
 }
 
+// Icona del tipo di veicolo
 @Composable
 private fun VehicleTypeIcon(type: VehicleType) {
     Box(
@@ -241,14 +246,11 @@ private fun VehicleTypeIcon(type: VehicleType) {
     }
 }
 
+// Chip per indicare lo stato del veicolo
 @Composable
 private fun ParkingStatusChip(isParked: Boolean) {
-    val container =
-        if (isParked) MaterialTheme.colorScheme.secondaryContainer
-        else MaterialTheme.colorScheme.surfaceVariant
-    val content =
-        if (isParked) MaterialTheme.colorScheme.onSecondaryContainer
-        else MaterialTheme.colorScheme.onSurfaceVariant
+    val container = if (isParked) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant
+    val content = if (isParked) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
 
     Row(
         modifier = Modifier
@@ -259,30 +261,30 @@ private fun ParkingStatusChip(isParked: Boolean) {
     ) {
         Text(
             if (isParked) "In sosta" else "Libero",
-            style = MaterialTheme.typography.labelMedium,
+            style = MaterialTheme.typography.labelSmall,
             color = content
         )
     }
 }
 
+// Schermata  mostrata quando l'utente non ha ancora aggiunto veicoli.
 @Composable
 private fun EmptyVehicles(modifier: Modifier = Modifier) {
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = Spacing.xxl),
+        modifier = modifier.fillMaxWidth().padding(horizontal = Spacing.xxl),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Spacer(Modifier.height(Spacing.xl))
         Text(
-            "Nessun veicolo",
+            "Nessun veicolo registrato",
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onBackground
         )
     }
 }
 
+//  Dialog per confermare l'eliminazione di un veicolo.
 @Composable
 private fun DeleteVehicleDialog(
     item: VehicleListItem,
@@ -291,14 +293,12 @@ private fun DeleteVehicleDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = {
-            Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-        },
+        icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
         title = { Text("Eliminare ${item.vehicle.name}?") },
         text = {
             Text(
                 if (item.isParked)
-                    "Il veicolo ha un parcheggio in corso. Verrà eliminato anche il parcheggio attivo"
+                    "Il veicolo ha un parcheggio in corso. Verrà eliminato anche il parcheggio attivo."
                 else
                     "Verranno eliminate anche le sue soste nello storico. L'operazione non può essere annullata."
             )

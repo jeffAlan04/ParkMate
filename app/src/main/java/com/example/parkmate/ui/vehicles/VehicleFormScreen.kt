@@ -64,29 +64,33 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import com.example.parkmate.ui.theme.Spacing
 import kotlinx.coroutines.launch
 
-
+// Schermata per l'aggiunta o la modifica di un veicolo.
 @Composable
 fun VehicleFormScreen(
-    vehicleId: Long? = null,
+    vehicleId: Long? = null, // Se presente indica che si sta modificando un veicolo esistente
     viewModel: VehicleViewModel = viewModel(factory = VehicleViewModelFactory),
-    onSaved: () -> Unit = {},
-    onBack: () -> Unit = onSaved
+    onSaved: () -> Unit = {}, // Azione da eseguire dopo il salvataggio
+    onBack: () -> Unit = onSaved // Azione per tornare indietro
 ) {
 
     val isEdit = vehicleId != null
 
-    // Contiene il nome del veicolo inserito dall'utente (inzialmente vuoto)
+    // Stato locale per i campi del form
     var name by rememberSaveable { mutableStateOf("") }
     var selectedType by rememberSaveable { mutableStateOf(VehicleType.CAR) }
     var plateNumber by rememberSaveable { mutableStateOf("") }
+    
+    // Traccia se l'utente ha interagito con i campi per mostrare messaggi di errore mirati
     var nameTouched by rememberSaveable { mutableStateOf(false) }
     var plateTouched by rememberSaveable { mutableStateOf(false) }
     var loaded by rememberSaveable { mutableStateOf(!isEdit) }
 
+    // Logica di derivazione dello stato per gestire la visibilità e gli errori
     val hasPlate = selectedType != VehicleType.BICYCLE
     val showNameError = nameTouched && name.isBlank()
     val showPlateError = hasPlate && plateTouched && plateNumber.isBlank()
 
+    // Determina se il pulsante di salvataggio deve essere abilitato
     val canSave = name.isNotBlank() && (!hasPlate || plateNumber.isNotBlank())
 
     // Carica i dati di un veicolo esistente
@@ -101,9 +105,9 @@ fun VehicleFormScreen(
         }
     }
 
+    // Valida e salva i dati del veicolo tramite il ViewModel.
     fun save() {
         val trimmedName = name.trim()
-
         val plate = plateNumber.trim().takeIf { hasPlate && it.isNotBlank() }
 
         if (vehicleId != null) {
@@ -117,14 +121,10 @@ fun VehicleFormScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .imePadding()
+            .imePadding() // Sposta l'UI quando appare la tastiera
     ) {
         FormHeader(
-            title =
-                if (isEdit)
-                    "Modifica veicolo"
-                else
-                    "Nuovo veicolo",
+            title = if (isEdit) "Modifica veicolo" else "Nuovo veicolo",
             subtitle = "",
             onBack = onBack
         )
@@ -136,6 +136,7 @@ fun VehicleFormScreen(
                 .padding(horizontal = Spacing.screenHorizontal),
             verticalArrangement = Arrangement.spacedBy(Spacing.xl)
         ) {
+            // Selezione tipologia di veicolo
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 SectionLabel("Tipo di veicolo")
                 Row(
@@ -152,6 +153,8 @@ fun VehicleFormScreen(
                     }
                 }
             }
+
+            // Inserimento nome veicolo
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 SectionLabel("Nome")
                 OutlinedTextField(
@@ -180,12 +183,15 @@ fun VehicleFormScreen(
                 modifier = Modifier.fillMaxWidth()
                 )
             }
+
+            // Inserimento targa per auto e moto
             AnimatedVisibility(visible = hasPlate) {
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     SectionLabel("Targa")
                     OutlinedTextField(
                         value = plateNumber,
                         onValueChange = { input ->
+                            // Forza il maiuscolo e limita i caratteri
                             plateNumber = input.uppercase().filter { it.isLetterOrDigit() }.take(10)
                             plateTouched = true
                         },
@@ -207,6 +213,8 @@ fun VehicleFormScreen(
             }
             Spacer(Modifier.height(Spacing.sm))
         }
+
+        // Pulsante di azione per il salvataggio
         Button(
             onClick = { save() },
             enabled = canSave,
@@ -217,10 +225,7 @@ fun VehicleFormScreen(
                 .height(Spacing.buttonHeight)
         ) {
             Text(
-                if (isEdit)
-                    "Salva modifiche"
-                else
-                    "Aggiungi veicolo",
+                if (isEdit) "Salva modifiche" else "Aggiungi veicolo",
                 style = MaterialTheme.typography.labelLarge
             )
         }
@@ -266,6 +271,8 @@ private fun SectionLabel(text: String) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
 }
+
+// Card per la selezione del tipo di veicolo
 @Composable
 private fun VehicleTypeCard(
     type: VehicleType,

@@ -1,6 +1,6 @@
 package com.example.parkmate.data.local.entity
 
-fun ParkingSession.computeCost(): Double = when (type) {
+fun ParkingSession.computeCost(now: Long = System.currentTimeMillis()): Double = when (type) {
     ParkingType.FREE -> 0.0
     ParkingType.TICKET -> fixedCost ?: 0.0
     ParkingType.HOURLY -> {

@@ -18,7 +18,8 @@ object ParkingViewModelFactory : ViewModelProvider.Factory {
             parkingRepository = app.container.parkingRepository,
             vehicleRepository = app.container.vehicleRepository,
             locationRepository = app.container.locationRepository,
-            appContext = app.applicationContext
+            locationProvider = app.container.locationProvider,
+            alarmScheduler = app.container.parkingAlarmScheduler
         ) as T
     }
 }

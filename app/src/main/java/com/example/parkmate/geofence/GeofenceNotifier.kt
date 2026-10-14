@@ -17,13 +17,17 @@ import com.example.parkmate.MainActivity
 import com.example.parkmate.data.local.entity.ParkingSession
 import com.example.parkmate.data.local.entity.SavedLocation
 
+// Gestisce la creazione e la visualizzazione delle notifiche relative al Geofencing.
 object GeofenceNotifier {
 
     private const val CHANNEL_ID = "geofence"
+    // Offset per le notifiche di uscita per evitare conflitti di ID con quelle di ingresso
     private const val EXIT_NOTIFICATION_OFFSET = 1000000
     private const val FLAGS = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
 
+    // Notifica quando l'utente entra in un'area salvata
     fun notifyEnter(context: Context, location: SavedLocation) {
+        // Intent per aprire l'app sulla schermata di avvio parcheggio per questo luogo
         val openIntent = Intent(context, MainActivity::class.java).apply {
             putExtra(MainActivity.EXTRA_START_LOCATION_ID, location.id)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -43,12 +47,15 @@ object GeofenceNotifier {
         show(context, location.id.toInt(), notification)
     }
 
+    // Invia una notifica quando l'utente esce da un'area salvata mentre ha ancora un parcheggio attivo
     fun notifyExit(context: Context, location: SavedLocation, session: ParkingSession, vehicleName: String) {
 
+        // Rimuove l'eventuale notifica di ingresso ancora visibile
         NotificationManagerCompat.from(context).cancel(location.id.toInt())
 
         val notificationId = EXIT_NOTIFICATION_OFFSET + session.id.toInt()
 
+        // Intent per terminare il parcheggio
         val endIntent = Intent(context, GeofenceActionReceiver::class.java).apply {
             action = GeofenceActionReceiver.ACTION_END_PARKING
             putExtra(GeofenceActionReceiver.EXTRA_SESSION_ID, session.id)
@@ -56,6 +63,7 @@ object GeofenceNotifier {
         }
         val endPendingIntent = PendingIntent.getBroadcast(context, session.id.toInt(), endIntent, FLAGS)
 
+        // Intent per aprire l'app
         val openApp = PendingIntent.getActivity(
             context,
             0,
@@ -77,6 +85,7 @@ object GeofenceNotifier {
         show(context, notificationId, notification)
     }
 
+    // Configurazione base comune per tutte le notifiche di Geofencing.
     private fun baseBuilder(context: Context, title: String, text: String): NotificationCompat.Builder {
         ensureChannel(context)
         return NotificationCompat.Builder(context, CHANNEL_ID)
@@ -87,6 +96,7 @@ object GeofenceNotifier {
             .setAutoCancel(true)
     }
 
+    // Crea il canale di notifica
     private fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val manager = context.getSystemService(NotificationManager::class.java)
@@ -96,6 +106,7 @@ object GeofenceNotifier {
         }
     }
 
+    // Mostra la notifica verificando i permessi
     @SuppressLint("MissingPermission")
     private fun show(context: Context, id: Int, notification: Notification) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED

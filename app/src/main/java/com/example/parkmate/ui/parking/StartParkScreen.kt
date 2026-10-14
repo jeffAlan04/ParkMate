@@ -34,8 +34,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.parkmate.data.local.entity.Vehicle
 import com.example.parkmate.data.local.entity.ParkingType
 import com.example.parkmate.data.local.entity.SavedLocation
-import com.example.parkmate.data.location.LocationProvider
-import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -98,8 +96,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import com.example.parkmate.data.photo.FullScreenPhotoDialog
-import com.example.parkmate.data.photo.PhotoThumbnail
+import com.example.parkmate.ui.photo.FullScreenPhotoDialog
+import com.example.parkmate.ui.photo.PhotoThumbnail
+import com.example.parkmate.ui.common.formatPrice
 import com.example.parkmate.ui.theme.Spacing
 import com.example.parkmate.ui.theme.extendedColors
 import com.example.parkmate.ui.vehicles.icon
@@ -233,9 +232,7 @@ fun StartParkScreen (
                 if (permissionStatus != LocationPermissionStatus.GRANTED) {
                     null // Non può leggere il GPS senza permesso
                 } else {
-                    val fusedClient = LocationServices.getFusedLocationProviderClient(context)
-                    // Chiama il provider GPS sospendendo la coroutine finché non riceve risposta
-                    LocationProvider(fusedClient).getCurrentLocation()?.let { it.latitude to it.longitude }
+                    viewModel.getCurrentLocation()?.let { it.latitude to it.longitude }
                 }
             }
         }

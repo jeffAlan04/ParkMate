@@ -1,13 +1,9 @@
 package com.example.parkmate.geofence
 
-import android.app.Notification.EXTRA_NOTIFICATION_ID
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageInstaller.EXTRA_SESSION_ID
 import androidx.core.app.NotificationManagerCompat
-import androidx.work.WorkManager
-import androidx.work.impl.utils.ForceStopRunnable
 import com.example.parkmate.ParkMateApplication
 import com.example.parkmate.data.local.entity.ParkingType
 import kotlinx.coroutines.CoroutineScope
@@ -36,12 +32,7 @@ class GeofenceActionReceiver : BroadcastReceiver() {
 
                 if (session != null) {
                     container.parkingRepository.endSession(session)
-
-                    if (session.type == ParkingType.TICKET) {
-                        val workManager = WorkManager.getInstance(context)
-                        workManager.cancelUniqueWork("parking_expiry_final_${session.vehicleId}")
-                        workManager.cancelUniqueWork("parking_expiry_warning_${session.vehicleId}")
-                    }
+                    container.parkingAlarmScheduler.cancelFor(session)
                 }
 
                 if (notificationId != -1) {

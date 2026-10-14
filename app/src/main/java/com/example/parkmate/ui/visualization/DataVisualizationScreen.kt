@@ -33,7 +33,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.parkmate.data.local.entity.ParkingType
-import com.example.parkmate.ui.parking.formatPrice
+import com.example.parkmate.ui.common.formatPrice
 import com.example.parkmate.ui.parking.label
 import com.example.parkmate.ui.theme.Spacing
 import com.google.android.gms.maps.model.CameraPosition

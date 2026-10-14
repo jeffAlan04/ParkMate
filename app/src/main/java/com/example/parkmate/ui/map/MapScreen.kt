@@ -50,8 +50,6 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.parkmate.data.local.entity.ParkingType
 import com.example.parkmate.data.local.entity.SavedLocation
-import com.example.parkmate.ui.map.LocationViewModel
-import com.example.parkmate.ui.map.LocationViewModelFactory
 import com.example.parkmate.ui.parking.ActiveSessionDisplay
 import com.example.parkmate.ui.parking.ParkingViewModel
 import com.example.parkmate.ui.parking.ParkingViewModelFactory
@@ -72,7 +70,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.ui.text.input.KeyboardType
-import com.example.parkmate.ui.parking.formatPrice
+import com.example.parkmate.ui.common.formatPrice
 import com.example.parkmate.ui.parking.label
 import com.example.parkmate.ui.theme.Spacing
 

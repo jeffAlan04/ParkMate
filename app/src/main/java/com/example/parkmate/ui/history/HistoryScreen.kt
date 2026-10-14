@@ -36,12 +36,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import com.example.parkmate.data.photo.FullScreenPhotoDialog
-import com.example.parkmate.data.photo.PhotoThumbnail
+import com.example.parkmate.ui.photo.FullScreenPhotoDialog
+import com.example.parkmate.ui.photo.PhotoThumbnail
 import com.example.parkmate.ui.theme.Spacing
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
-import com.example.parkmate.ui.parking.formatPrice
+import com.example.parkmate.ui.common.formatPrice
 import com.example.parkmate.ui.parking.label
 import java.util.Date
 

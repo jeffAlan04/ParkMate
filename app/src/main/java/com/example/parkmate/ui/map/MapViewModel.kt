@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 //ViewModel che gestisce la logica dei luoghi salvati dall'utente.
-class LocationViewModel(private val repository: LocationRepository, private val geofenceManager: GeofenceManager) : ViewModel() {
+class MapViewModel(private val repository: LocationRepository, private val geofenceManager: GeofenceManager) : ViewModel() {
 
     // Espone la lista di tutti i luoghi salvati come StateFlow.
     val locations: StateFlow<List<SavedLocation>> = repository.getAllLocations()

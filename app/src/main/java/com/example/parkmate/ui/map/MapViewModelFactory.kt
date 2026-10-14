@@ -6,7 +6,7 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import com.example.parkmate.ParkMateApplication
 
 // Factory per creare il LocationViewModel con le dipendenze necessarie
-object LocationViewModelFactory: ViewModelProvider.Factory {
+object MapViewModelFactory: ViewModelProvider.Factory {
 
     // Recupera l'istanza dell'Application
     override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T {
@@ -14,6 +14,6 @@ object LocationViewModelFactory: ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
 
         // Crea il ViewModel fornendo le repository necessarie
-        return LocationViewModel(app.container.locationRepository, app.container.geofenceManager) as T
+        return MapViewModel(app.container.locationRepository, app.container.geofenceManager) as T
     }
 }

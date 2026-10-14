@@ -86,11 +86,11 @@ private sealed class LocationFormMode {
 @Composable
 fun MapScreen(
     parkingViewModel: ParkingViewModel = viewModel(factory = ParkingViewModelFactory),
-    locationViewModel: LocationViewModel = viewModel(factory = LocationViewModelFactory)
+    mapViewModel: MapViewModel = viewModel(factory = MapViewModelFactory)
 ) {
 
     val activeSessions by parkingViewModel.activeSessions.collectAsState()
-    val savedLocation by locationViewModel.locations.collectAsState()
+    val savedLocation by mapViewModel.locations.collectAsState()
 
     var selectedSession by remember { mutableStateOf<ActiveSessionDisplay?>(null) }
     var formMode by remember { mutableStateOf<LocationFormMode?>(null) }
@@ -212,14 +212,14 @@ fun MapScreen(
             onDismiss = { formMode = null },
             onSave = { name, lat, lng, type, hourlyRate, fixedCost, geofenceEnabled, geofenceRadius ->
                 when (mode) {
-                    is LocationFormMode.Add -> locationViewModel.addLocation(name, lat, lng, type, hourlyRate, fixedCost, geofenceEnabled, geofenceRadius)
-                    is LocationFormMode.Edit -> locationViewModel.updateLocation(mode.location.id, name, lat, lng, type, hourlyRate, fixedCost, geofenceEnabled, geofenceRadius)
+                    is LocationFormMode.Add -> mapViewModel.addLocation(name, lat, lng, type, hourlyRate, fixedCost, geofenceEnabled, geofenceRadius)
+                    is LocationFormMode.Edit -> mapViewModel.updateLocation(mode.location.id, name, lat, lng, type, hourlyRate, fixedCost, geofenceEnabled, geofenceRadius)
                 }
                 formMode = null
             },
             onDelete = (mode as? LocationFormMode.Edit)?.let { editMode ->
                 {
-                    locationViewModel.deleteLocation(editMode.location)
+                    mapViewModel.deleteLocation(editMode.location)
                     formMode = null
                 }
             }

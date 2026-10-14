@@ -1,12 +1,7 @@
 package com.example.parkmate.ui.parking
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.work.ExistingWorkPolicy
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
-import androidx.work.workDataOf
 import com.example.parkmate.data.local.entity.ParkingSession
 import com.example.parkmate.data.local.entity.ParkingType
 import com.example.parkmate.data.local.entity.Vehicle
@@ -14,7 +9,9 @@ import com.example.parkmate.data.repository.LocationRepository
 import com.example.parkmate.data.repository.ParkingRepository
 import com.example.parkmate.data.repository.VehicleRepository
 import com.example.parkmate.data.local.entity.SavedLocation
-import com.example.parkmate.notification.ParkingExpiryWorker
+import com.example.parkmate.data.location.LocationCoordinates
+import com.example.parkmate.data.location.LocationProvider
+import com.example.parkmate.notification.ParkingAlarmScheduler
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -23,7 +20,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.util.concurrent.TimeUnit
 
 data class ActiveSessionDisplay(
     val session: ParkingSession,
@@ -43,7 +39,8 @@ class ParkingViewModel(
     private val parkingRepository: ParkingRepository,
     vehicleRepository: VehicleRepository,
     locationRepository: LocationRepository,
-    private val appContext: Context
+    private val locationProvider: LocationProvider,
+    private val alarmScheduler: ParkingAlarmScheduler
 ) : ViewModel() {
 
     // Recupera tutti i veicoli dal repository
@@ -53,6 +50,9 @@ class ParkingViewModel(
     // Recupera tutti i luoghi salvati
     val savedLocations: StateFlow<List<SavedLocation>> = locationRepository.getAllLocations()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Restituisce la posizione GPS attuale del dispositivo
+    suspend fun getCurrentLocation(): LocationCoordinates? = locationProvider.getCurrentLocation()
 
     // Avvia una sessione di parcheggio
     fun startParking(
@@ -88,31 +88,8 @@ class ParkingViewModel(
 
             if (type == ParkingType.TICKET && expiryTime != null) {
                 val vehicleName = vehicles.value.find { it.id == vehicleId }?.name ?: "Veicolo"
-                scheduleExpiryNotifications(vehicleId, vehicleName, expiryTime, warningMinutesBefore ?: 15)
+                alarmScheduler.scheduleExpiry(vehicleId, vehicleName, expiryTime, warningMinutesBefore ?: 15)
             }
-        }
-    }
-
-    private fun scheduleExpiryNotifications(vehicleId: Long, vehicleName: String, expiryTime: Long, warningMinutesBefore: Int) {
-        val now = System.currentTimeMillis()
-        val workManager = WorkManager.getInstance(appContext)
-
-        val finalDelay = expiryTime - now
-        if (finalDelay > 0) {
-            val finalRequest = OneTimeWorkRequestBuilder<ParkingExpiryWorker>()
-                .setInitialDelay(finalDelay, TimeUnit.MILLISECONDS)
-                .setInputData(workDataOf("vehicleName" to vehicleName, "isWarning" to false))
-                .build()
-            workManager.enqueueUniqueWork("parking_expiry_final_$vehicleId", ExistingWorkPolicy.REPLACE, finalRequest)
-        }
-
-        val warningDelay = expiryTime - now - warningMinutesBefore * 60000
-        if (warningDelay > 0) {
-            val warningRequest = OneTimeWorkRequestBuilder<ParkingExpiryWorker>()
-                .setInitialDelay(warningDelay, TimeUnit.MILLISECONDS)
-                .setInputData(workDataOf("vehicleName" to vehicleName, "isWarning" to true))
-                .build()
-            workManager.enqueueUniqueWork("parking_expiry_warning_$vehicleId", ExistingWorkPolicy.REPLACE, warningRequest)
         }
     }
 
@@ -164,12 +141,7 @@ class ParkingViewModel(
         viewModelScope.launch {
             // Aggiorna lo stato della sessione nel database
             parkingRepository.endSession(session)
-
-            if (session.type == ParkingType.TICKET) {
-                val workManager = WorkManager.getInstance(appContext)
-                workManager.cancelUniqueWork("parking_expiry_final_${session.vehicleId}")
-                workManager.cancelUniqueWork("parking_expiry_warning_${session.vehicleId}")
-            }
+            alarmScheduler.cancelFor(session)
         }
     }
 }

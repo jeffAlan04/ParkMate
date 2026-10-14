@@ -15,8 +15,7 @@ import androidx.core.content.ContextCompat
 // Possibili stati del permesso di localizzazione
 enum class LocationPermissionStatus { NOT_REQUESTED, GRANTED, DENIED}
 
-// Composable che gestisce lo stato del permsso di localizzazione
-// Restituisce lo stato attuale del permesso e una funzione per richiedere il permesso
+// Gestisce lo stato del permsso di localizzazione
 @Composable
 fun rememberLocationPermissionStatus(): Pair<LocationPermissionStatus, () -> Unit> {
 

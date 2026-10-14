@@ -45,22 +45,27 @@ import com.example.parkmate.ui.common.formatPrice
 import com.example.parkmate.ui.parking.label
 import java.util.Date
 
+//Categorie di filtro per lo storico.
 private enum class FilterCategory(val label: String) {
     NONE("Nessuno"), VEHICLE("Veicolo"), TYPE("Tipo"), PERIOD("Periodo")
 }
 
+// Range temporali 
 private val PERIODS = listOf(
     TimeRange.TODAY to "Oggi",
     TimeRange.WEEK to "Settimana",
     TimeRange.MONTH to "Mese"
 )
 
+//Schermata dello storico dei parcheggi conclusi.
 @Composable
 fun HistoryScreen(viewModel: HistoryViewModel = viewModel(factory = HistoryViewModelFactory)) {
+    // Osservazione dello stato dal ViewModel
     val entries by viewModel.filteredHistory.collectAsState()
     val vehicles by viewModel.vehicles.collectAsState()
     val filter by viewModel.filter.collectAsState()
 
+    // Stato per gestire quale categoria di filtro è attualmente selezionata
     var activeCategory by remember { mutableStateOf(FilterCategory.NONE) }
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
@@ -74,6 +79,7 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel(factory = HistoryViewM
                 .padding(top = Spacing.xl, bottom = Spacing.lg)
         )
 
+        // ChipCategory per i filtri
         ChipRow {
             items(FilterCategory.entries) { category ->
                 ParkFilterChip(
@@ -81,25 +87,28 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel(factory = HistoryViewM
                     selected = activeCategory == category,
                     onClick = {
                         activeCategory = category
+                        // Resetta il filtro effettivo quando si cambia categoria
                         viewModel.setFilter(HistoryFilter.None)
                     }
                 )
             }
         }
 
+        // Sotto filtri che appaiono in base alla categoria selezionata
         AnimatedVisibility(visible = activeCategory != FilterCategory.NONE) {
             Column {
                 Spacer(Modifier.height(Spacing.sm))
                 ChipRow {
                     when (activeCategory) {
+                        // Filtro per veicolo
                         FilterCategory.VEHICLE -> items(vehicles, key = { it.id }) { vehicle ->
                             val selected = (filter as? HistoryFilter.ByVehicle)?.vehicleId == vehicle.id
                             ParkFilterChip(vehicle.name, selected) {
-                                viewModel.setFilter(if (selected) HistoryFilter.None else HistoryFilter.ByVehicle(vehicle.id)
-                                )
+                                viewModel.setFilter(if (selected) HistoryFilter.None else HistoryFilter.ByVehicle(vehicle.id))
                             }
                         }
 
+                        // Filtro per tipo di parcheggio
                         FilterCategory.TYPE -> items(ParkingType.entries) { type ->
                             val selected = (filter as? HistoryFilter.ByType)?.type == type
                             ParkFilterChip(type.label, selected) {
@@ -109,7 +118,8 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel(factory = HistoryViewM
                             }
                         }
 
-                        FilterCategory.PERIOD ->  items(PERIODS) { (range, label) ->
+                        // Filtro per periodo
+                        FilterCategory.PERIOD -> items(PERIODS) { (range, label) ->
                             val selected = (filter as? HistoryFilter.ByPeriod)?.range == range
                             ParkFilterChip(label, selected) {
                                 viewModel.setFilter(
@@ -147,6 +157,7 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel(factory = HistoryViewM
     }
 }
 
+// Riga orizzontale a scorrimento per i filtri.
 @Composable
 private fun ChipRow(content: LazyListScope.() -> Unit) {
     LazyRow(
@@ -156,6 +167,7 @@ private fun ChipRow(content: LazyListScope.() -> Unit) {
     )
 }
 
+// Singolo chip di filtro per lo storico.
 @Composable
 private fun ParkFilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
     FilterChip(
@@ -177,6 +189,7 @@ private fun ParkFilterChip(label: String, selected: Boolean, onClick: () -> Unit
     )
 }
 
+// Card per singola sessione con nome del veicolo, costo, data tipo e foto
 @Composable
 private fun HistoryEntryCard(entry: HistoryEnter) {
     val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.ITALY) }
@@ -194,6 +207,7 @@ private fun HistoryEntryCard(entry: HistoryEnter) {
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Nome del veicolo
             Text(
                 entry.vehicleName,
                 style = MaterialTheme.typography.titleMedium,
@@ -203,6 +217,7 @@ private fun HistoryEntryCard(entry: HistoryEnter) {
                 modifier = Modifier.weight(1f)
             )
             Spacer(Modifier.width(Spacing.md))
+            // Costo finale
             Text(
                 if (entry.session.type == ParkingType.FREE)
                     "Gratis"
@@ -214,6 +229,7 @@ private fun HistoryEntryCard(entry: HistoryEnter) {
         }
         Spacer(Modifier.height(Spacing.xxs))
 
+        // Data e ora di inizio
         Text(
             dateFormat.format(Date(entry.session.startTime)),
             style = MaterialTheme.typography.bodyMedium,
@@ -221,8 +237,10 @@ private fun HistoryEntryCard(entry: HistoryEnter) {
         )
         Spacer(Modifier.height(Spacing.sm))
 
+        // Tipo di parcheggio
         TypeTag(entry.session.type)
 
+        // Foto
         entry.session.photoPath?.let { path ->
             Spacer(Modifier.height(Spacing.md))
 
@@ -234,6 +252,7 @@ private fun HistoryEntryCard(entry: HistoryEnter) {
                     .clip(MaterialTheme.shapes.medium),
                 onClick = { showPhoto = true }
             )
+            // Dialog per visualizzare la foto a schermo intero
             if (showPhoto) {
                 FullScreenPhotoDialog(path = path, onDismiss = { showPhoto = false })
             }
@@ -241,6 +260,7 @@ private fun HistoryEntryCard(entry: HistoryEnter) {
     }
 }
 
+// Tag per il tipo di parcheggio.
 @Composable
 private fun TypeTag(type: ParkingType) {
     Text(
@@ -254,6 +274,7 @@ private fun TypeTag(type: ParkingType) {
     )
 }
 
+// Schermata per quando non ci sono sessioni salvate o filtrate.
 @Composable
 private fun EmptyHistory(filtered: Boolean, modifier: Modifier = Modifier) {
     Column(

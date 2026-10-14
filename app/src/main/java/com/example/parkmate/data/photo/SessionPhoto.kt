@@ -1,4 +1,4 @@
-package com.example.parkmate.ui.photo
+package com.example.parkmate.data.photo
 
 import android.content.Context
 import android.graphics.Bitmap

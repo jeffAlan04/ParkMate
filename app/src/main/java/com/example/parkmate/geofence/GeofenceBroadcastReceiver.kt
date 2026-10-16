@@ -14,7 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-// Intercettare gli eventi di Geofencing (ingresso/uscita da zone) anche se l'app è chiusa.
+// Intercetta l'ingresso e l'uscita da zone anche se l'app è chiusa
 class GeofenceBroadcastReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -54,14 +54,17 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
                             GeofenceNotifier.notifyEnter(context, location)
 
                         // Caso Uscita
-                        Geofence.GEOFENCE_TRANSITION_EXIT ->
-                            // Filtra le sessioni di parcheggio attive che si trovano vicino a questa zona
-                            sessions.filter { isNear(it, location) }.forEach { session ->
-                                // Recupera il nome del veicolo associato alla sessione
-                                val vehicleName = vehicles.find { it.id == session.vehicleId }?.name ?: "Veicolo"
-                                // Invia la notifica suggerendo di terminare il parcheggio
-                                GeofenceNotifier.notifyExit(context, location, session, vehicleName)
-                            }
+                        Geofence.GEOFENCE_TRANSITION_EXIT -> {
+                            val parked = sessions
+                                .filter { isNear(it, location) }
+                                .map { session ->
+                                    GeofenceNotifier.ParkedVehicle(
+                                        session = session,
+                                        vehicleName = vehicles.find { it.id == session.vehicleId }?.name ?: "Veicolo"
+                                    )
+                                }
+                            GeofenceNotifier.notifyExit(context, location, parked)
+                        }
                     }
                 }
             } finally {

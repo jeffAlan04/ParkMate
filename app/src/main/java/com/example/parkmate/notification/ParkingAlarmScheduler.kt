@@ -24,7 +24,7 @@ class ParkingAlarmScheduler(context: Context) {
         if (finalDelay > 0) {
             val finalRequest = OneTimeWorkRequestBuilder<ParkingExpiryWorker>()
                 .setInitialDelay(finalDelay, TimeUnit.MILLISECONDS)
-                .setInputData(workDataOf("vehicleName" to vehicleName, "isWarning" to false))
+                .setInputData(workDataOf("vehicleId" to vehicleId, "vehicleName" to vehicleName, "isWarning" to false))
                 .build()
             
             // Aggiorna eventuali pianificazioni esistenti per lo stesso veicolo
@@ -36,7 +36,7 @@ class ParkingAlarmScheduler(context: Context) {
         if (warningDelay > 0) {
             val warningRequest = OneTimeWorkRequestBuilder<ParkingExpiryWorker>()
                 .setInitialDelay(warningDelay, TimeUnit.MILLISECONDS)
-                .setInputData(workDataOf("vehicleName" to vehicleName, "isWarning" to true))
+                .setInputData(workDataOf("vehicleId" to vehicleId, "vehicleName" to vehicleName, "isWarning" to true))
                 .build()
             workManager.enqueueUniqueWork(warningWorkName(vehicleId), ExistingWorkPolicy.REPLACE, warningRequest)
         }

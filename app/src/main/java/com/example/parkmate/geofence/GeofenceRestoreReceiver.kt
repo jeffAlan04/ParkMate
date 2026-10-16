@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 // Ripristinare i Geofence al riavvio del dispositivo.
-class BootReceiver : BroadcastReceiver() {
+class GeofenceRestoreReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         // Verifica che l'evento ricevuto sia effettivamente il completamento dell'avvio

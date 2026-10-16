@@ -104,6 +104,7 @@ import com.example.parkmate.ui.theme.Spacing
 import com.example.parkmate.ui.theme.extendedColors
 import com.example.parkmate.ui.vehicles.icon
 import com.example.parkmate.ui.common.formatElapsedDuration
+import com.example.parkmate.ui.navigation.NotificationTarget
 
 private enum class LocationSource { CURRENT, SAVED }
 
@@ -112,8 +113,8 @@ private enum class LocationSource { CURRENT, SAVED }
 @Composable
 fun StartParkScreen (
     viewModel: ParkingViewModel = viewModel(factory = ParkingViewModelFactory),
-    initialLocationId: Long? = null, // ID opzionale per preselezionare un luogo salvato
-    onParkingStarted: () -> Unit = {} // Callback richiamata dopo il salvataggio
+    notificationTarget: NotificationTarget? = null,
+    onNotificationHandled: () -> Unit = {}
 ) {
     // Osservazione degli stati dal ViewModel
     val vehicles by viewModel.vehicles.collectAsState()
@@ -216,8 +217,6 @@ fun StartParkScreen (
         activeSessions.find { it.session.vehicleId == id }
     }
 
-    var handledLocationId by remember { mutableStateOf<Long?>(null) }
-
     //Verifica se un determinato veicolo ha una sessione attiva
     fun hasActiveSession(vehicle: Vehicle) = activeSessions.any { it.session.vehicleId == vehicle.id }
 
@@ -248,14 +247,22 @@ fun StartParkScreen (
         }
     }
 
-    // Effect per gestire l'avvio da una notifica di geofence
-    LaunchedEffect(initialLocationId, savedLocations) {
-        if (initialLocationId != null && initialLocationId != handledLocationId) {
-            savedLocations.find { it.id == initialLocationId }?.let { location ->
-                selectedSavedLocation = location
-                locationSource = LocationSource.SAVED
-                handledLocationId = initialLocationId
+    // Applica la schermata richiesta da una notifica
+    LaunchedEffect(notificationTarget, savedLocations) {
+        when (val target = notificationTarget) {
+            is NotificationTarget.ActiveSession -> {
+                summaryVehicleId = target.vehicleId
+                onNotificationHandled()
             }
+            is NotificationTarget.StartPark -> {
+                savedLocations.find { it.id == target.locationId }?.let { location ->
+                    summaryVehicleId = null
+                    selectedSavedLocation = location
+                    locationSource = LocationSource.SAVED
+                    onNotificationHandled()
+                }
+            }
+            null -> Unit
         }
     }
 

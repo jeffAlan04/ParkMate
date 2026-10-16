@@ -39,11 +39,12 @@ import android.Manifest
 import android.content.Intent
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.example.parkmate.ui.navigation.NotificationTarget
 
 // Activity principale
 class MainActivity : ComponentActivity() {
-    // ID della posizione da cui avviare un parcheggio
-    private var startLocationId by mutableStateOf<Long?>(null)
+    // Schermata richiesta da una notifica
+    private var notificationTarget by mutableStateOf<NotificationTarget?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,7 +53,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         
         // Se l'attività viene creata da zero, controlla se c'è un luogo preselezionato nell'Intent
-        if (savedInstanceState == null) readStartLocation(intent)
+        if (savedInstanceState == null) readNotificationTarget(intent)
         
         setContent {
             ParkMateTheme {
@@ -60,7 +61,10 @@ class MainActivity : ComponentActivity() {
                 RequestNotificationPermission()
                 
                 // Punto di ingresso dell'interfaccia Compose
-                ParkMateApp(startLocationId = startLocationId)
+                ParkMateApp(
+                    notificationTarget = notificationTarget,
+                    onNotificationHandled = { notificationTarget = null }
+                )
             }
         }
     }
@@ -69,17 +73,26 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        readStartLocation(intent)
+        readNotificationTarget(intent)
     }
 
-    // Estrae l'ID della posizione dagli
-    private fun readStartLocation(intent: Intent) {
-        startLocationId = intent.getLongExtra(EXTRA_START_LOCATION_ID, -1).takeIf { it != -1L }
+    // Legge dall'Intent quale schermata aprire
+    private fun readNotificationTarget(intent: Intent) {
+        val vehicleId = intent.getLongExtra(EXTRA_SUMMARY_VEHICLE_ID, -1L)
+        val locationId = intent.getLongExtra(EXTRA_START_LOCATION_ID, -1L)
+
+        notificationTarget = when {
+            vehicleId != -1L -> NotificationTarget.ActiveSession(vehicleId)
+            locationId != -1L -> NotificationTarget.StartPark(locationId)
+            else -> notificationTarget
+        }
     }
 
     companion object { 
         // Chiave utilizzata per passare l'ID del luogo tramite Intent
-        const val EXTRA_START_LOCATION_ID = "startLocationId" 
+        const val EXTRA_START_LOCATION_ID = "startLocationId"
+
+        const val EXTRA_SUMMARY_VEHICLE_ID = "summaryVehicleId"
     }
 }
 
@@ -88,15 +101,21 @@ private data class BottonNavItem(val route: Routes, val label: String, val icon:
 
 // Composable che definisce la struttura dell'app con navigazione e BottomBar
 @Composable
-fun ParkMateApp(startLocationId: Long? = null) {
-    RequestNotificationPermission()
-
+fun ParkMateApp(
+    notificationTarget: NotificationTarget?,
+    onNotificationHandled: () -> Unit
+) {
     val navController = rememberNavController()
 
     // Effect per navigare alla schermata Parcheggi se è stato passato un luogo specifico
-    LaunchedEffect(startLocationId) {
-        if (startLocationId != null)
-            navController.navigate(Routes.StartPark)
+    LaunchedEffect(notificationTarget) {
+        if (notificationTarget != null) {
+            navController.navigate(Routes.StartPark) {
+                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
     }
 
     // Elenco delle destinazioni principali nella barra di navigazione
@@ -143,7 +162,8 @@ fun ParkMateApp(startLocationId: Long? = null) {
         // Componente che gestisce le transizioni tra le diverse schermate dell'app
         NavGraph(
             navController = navController,
-            startLocationId = startLocationId,
+            notificationTarget = notificationTarget,
+            onNotificationHandled = onNotificationHandled,
             modifier = Modifier.padding(innerPadding)
         )
     }

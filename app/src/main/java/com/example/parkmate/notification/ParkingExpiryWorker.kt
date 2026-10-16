@@ -18,17 +18,18 @@ class ParkingExpiryWorker(context: Context, params: WorkerParameters) : Coroutin
 
     //Recupera i dati di input e invoca la visualizzazione della notifica.
     override suspend fun doWork(): Result {
-        // Recupera il nome del veicolo e il flag di preavviso dai dati passati al worker
+        // Recupera l'id, il nome del veicolo e il flag di preavviso dai dati passati al worker
+        val vehicleId = inputData.getLong("vehicleId", -1L)
         val vehicleName = inputData.getString("vehicleName") ?: "Veicolo"
         val isWarning = inputData.getBoolean("isWarning", false)
         
-        showNotification(vehicleName, isWarning)
+        showNotification(vehicleId, vehicleName, isWarning)
         return Result.success()
     }
 
     // Costruisce e visualizza la notifica
     @SuppressLint("ServiceCast", "MissingPermission")
-    private fun showNotification(vehicleName: String, isWarning: Boolean) {
+    private fun showNotification(vehicleId: Long, vehicleName: String, isWarning: Boolean) {
         // Identificativo del canale di notifica
         val channelId =
             if (isWarning)
@@ -75,17 +76,20 @@ class ParkingExpiryWorker(context: Context, params: WorkerParameters) : Coroutin
                 "Il parcheggio di $vehicleName è scaduto"
 
         // Costruzione della notifica
-        val notification = NotificationCompat.Builder(applicationContext, channelId)
+        val builder = NotificationCompat.Builder(applicationContext, channelId)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setContentTitle(title)
             .setContentText(text)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             // Se è un avviso finale la notifica rimane finché l'utente non interagisce
-            .setAutoCancel(!isWarning)
-            .build()
+            .setAutoCancel(true)
+
+        if (vehicleId != -1L) {
+            builder.setContentIntent(NotificationIntents.activeSession(applicationContext, vehicleId))
+        }
 
         // Generazione di un ID univoco
-        val notificationId = (vehicleName + isWarning).hashCode()
-        NotificationManagerCompat.from(applicationContext).notify(notificationId, notification)
+        val notificationId = (vehicleId * 2 + if (isWarning) 1 else 0).toInt()
+        NotificationManagerCompat.from(applicationContext).notify(notificationId, builder.build())
     }
 }

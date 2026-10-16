@@ -1,6 +1,5 @@
 package com.example.parkmate.ui.navigation
 
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
@@ -16,7 +15,11 @@ import com.example.parkmate.ui.visualization.DataVisualizationScreen
 
 // Navigazione fra le pagine
 @Composable
-fun NavGraph(navController: NavHostController, startLocationId: Long? = null, modifier: Modifier = Modifier) {
+fun NavGraph(
+    navController: NavHostController,
+    notificationTarget: NotificationTarget?,
+    onNotificationHandled: () -> Unit = {},
+    modifier: Modifier = Modifier) {
 
     // Destinazioni raggiungibili
     NavHost(
@@ -49,7 +52,9 @@ fun NavGraph(navController: NavHostController, startLocationId: Long? = null, mo
 
         // Form per avviare una nuova sessione di parcheggio
         composable<Routes.StartPark> {
-            StartParkScreen(initialLocationId = startLocationId)
+            StartParkScreen(
+                notificationTarget = notificationTarget,
+                onNotificationHandled = onNotificationHandled)
         }
 
         composable<Routes.Map> {

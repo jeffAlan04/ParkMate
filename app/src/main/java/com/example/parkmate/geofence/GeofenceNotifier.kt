@@ -16,6 +16,7 @@ import androidx.core.content.ContextCompat
 import com.example.parkmate.MainActivity
 import com.example.parkmate.data.local.entity.ParkingSession
 import com.example.parkmate.data.local.entity.SavedLocation
+import com.example.parkmate.notification.NotificationIntents
 
 // Gestisce la creazione e la visualizzazione delle notifiche relative al Geofencing.
 object GeofenceNotifier {
@@ -25,64 +26,64 @@ object GeofenceNotifier {
     private const val EXIT_NOTIFICATION_OFFSET = 1000000
     private const val FLAGS = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
 
+    // Veicolo parcheggiato vicino al luogo
+    data class ParkedVehicle(val session: ParkingSession, val vehicleName: String)
+
     // Notifica quando l'utente entra in un'area salvata
     fun notifyEnter(context: Context, location: SavedLocation) {
-        // Intent per aprire l'app sulla schermata di avvio parcheggio per questo luogo
-        val openIntent = Intent(context, MainActivity::class.java).apply {
-            putExtra(MainActivity.EXTRA_START_LOCATION_ID, location.id)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-        }
 
-        val startPendingIntent = PendingIntent.getActivity(context, location.id.toInt(), openIntent, FLAGS)
+        val openStartPark = NotificationIntents.startParking(context, location.id)
 
         val notification = baseBuilder(
             context,
             title = "Sei arrivato a ${location.name}",
             text = "Vuoi avviare il parcheggio?"
         )
-            .setContentIntent(startPendingIntent)
-            .addAction(0, "Avvia parcheggio", startPendingIntent)
+            .setContentIntent(openStartPark)
+            .addAction(0, "Avvia parcheggio", openStartPark)
             .build()
 
         show(context, location.id.toInt(), notification)
     }
 
     // Invia una notifica quando l'utente esce da un'area salvata mentre ha ancora un parcheggio attivo
-    fun notifyExit(context: Context, location: SavedLocation, session: ParkingSession, vehicleName: String) {
+    fun notifyExit(context: Context, location: SavedLocation, parked: List<ParkedVehicle>) {
 
-        // Rimuove l'eventuale notifica di ingresso ancora visibile
+        if (parked.isEmpty()) return
+
         NotificationManagerCompat.from(context).cancel(location.id.toInt())
 
-        val notificationId = EXIT_NOTIFICATION_OFFSET + session.id.toInt()
+        val notificationId = EXIT_NOTIFICATION_OFFSET + location.id.toInt()
+        val first = parked.first()
 
-        // Intent per terminare il parcheggio
-        val endIntent = Intent(context, GeofenceActionReceiver::class.java).apply {
-            action = GeofenceActionReceiver.ACTION_END_PARKING
-            putExtra(GeofenceActionReceiver.EXTRA_SESSION_ID, session.id)
-            putExtra(GeofenceActionReceiver.EXTRA_NOTIFICATION_ID, notificationId)
+        val builder = if (parked.size == 1) {
+            baseBuilder(
+                context,
+                title = "Hai lasciato ${location.name}",
+                text = "Il parcheggio di ${first.vehicleName} è ancora attivo"
+            ).addAction(0, "Terminare parcheggio", endPakingIntent(context, first.session.id, notificationId))
+        } else {
+            baseBuilder(
+                context,
+                title = "Hai lasciato ${location.name}",
+                text = "Hai ${parked.size} parcheggiati ancora attivi"
+            )
         }
-        val endPendingIntent = PendingIntent.getBroadcast(context, session.id.toInt(), endIntent, FLAGS)
 
-        // Intent per aprire l'app
-        val openApp = PendingIntent.getActivity(
-            context,
-            0,
-            Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            },
-            FLAGS
-        )
-
-        val notification = baseBuilder(
-            context,
-            title = "Hai lasciato ${location.name}",
-            text = "Il parcheggio di $vehicleName è ancora attivo"
-        )
-            .setContentIntent(openApp)
-            .addAction(0, "Termina parcheggio", endPendingIntent)
+        val notification = builder
+            .setContentIntent(NotificationIntents.activeSession(context, first.session.vehicleId))
             .build()
 
         show(context, notificationId, notification)
+    }
+
+    private fun endPakingIntent(context: Context, sessionId: Long, notificationId: Int): PendingIntent {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            action = GeofenceActionReceiver.ACTION_END_PARKING
+            putExtra(GeofenceActionReceiver.EXTRA_SESSION_ID, sessionId)
+            putExtra(GeofenceActionReceiver.EXTRA_NOTIFICATION_ID, notificationId)
+        }
+        return PendingIntent.getBroadcast(context, notificationId, intent, FLAGS)
     }
 
     // Configurazione base comune per tutte le notifiche di Geofencing.

@@ -61,12 +61,12 @@ object GeofenceNotifier {
                 context,
                 title = "Hai lasciato ${location.name}",
                 text = "Il parcheggio di ${first.vehicleName} è ancora attivo"
-            ).addAction(0, "Terminare parcheggio", endPakingIntent(context, first.session.id, notificationId))
+            ).addAction(0, "Termina parcheggio", endPakingIntent(context, first.session.id, notificationId))
         } else {
             baseBuilder(
                 context,
                 title = "Hai lasciato ${location.name}",
-                text = "Hai ${parked.size} parcheggiati ancora attivi"
+                text = "Hai ${parked.size} parcheggi ancora attivi"
             )
         }
 
@@ -78,7 +78,7 @@ object GeofenceNotifier {
     }
 
     private fun endPakingIntent(context: Context, sessionId: Long, notificationId: Int): PendingIntent {
-        val intent = Intent(context, MainActivity::class.java).apply {
+        val intent = Intent(context, GeofenceActionReceiver::class.java).apply {
             action = GeofenceActionReceiver.ACTION_END_PARKING
             putExtra(GeofenceActionReceiver.EXTRA_SESSION_ID, sessionId)
             putExtra(GeofenceActionReceiver.EXTRA_NOTIFICATION_ID, notificationId)

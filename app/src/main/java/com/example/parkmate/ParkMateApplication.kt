@@ -23,7 +23,7 @@ class ParkMateApplication : Application() {
         // Ripristina i Geofence all'avvio dell'applicazione.
         CoroutineScope(Dispatchers.IO).launch {
             // Recupera la lista corrente dei luoghi salvati dal database
-            val locations = container.locationRepository.getAllLocations().first()
+            val locations = container.savedLocationRepository.getAllLocations().first()
             
             // Registra geofence salvati dall'utente
             container.geofenceManager.registerAll(locations)

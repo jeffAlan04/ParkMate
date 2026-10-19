@@ -11,7 +11,6 @@ val BrandTeal = Color(0xFF0D9488)
 val BrandTealLight = Color(0xFFD5F5EF)
 val BrandAccent = Color(0xFF39A9FF)
 
-// Neutri
 val LightBackground = Color(0xFFF6F8FC)
 val LightSurface = Color(0xFFFFFFFF)
 val LightSurfaceMuted = Color(0xFFEEF2F8)
@@ -20,7 +19,6 @@ val LightTextSecondary = Color(0xFF687386)
 val LightOutline = Color(0xFFD5DCE6)
 val LightOutlineSoft = Color(0xFFE6EBF2)
 
-// Semantici
 val LightSuccess = Color(0xFF1E9E5A)
 val LightSuccessContainer = Color(0xFFDDF5E8)
 val LightOnSuccessContainer = Color(0xFF0F5132)

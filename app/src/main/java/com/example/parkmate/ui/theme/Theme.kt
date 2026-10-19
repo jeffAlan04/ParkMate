@@ -85,7 +85,6 @@ private val LightColorScheme = lightColorScheme(
     onSurfaceVariant = LightTextSecondary,
     surfaceTint = BrandBlue,
 
-    // Senza questi Material 3 usa toni violacei di default per card, sheet e barre
     surfaceBright = LightSurface,
     surfaceDim = Color(0xFFDCE2EC),
     surfaceContainerLowest = LightSurface,
@@ -112,7 +111,6 @@ private val LightColorScheme = lightColorScheme(
 @Composable
 fun ParkMateTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
     content: @Composable () -> Unit
 ) {
     val colorScheme =

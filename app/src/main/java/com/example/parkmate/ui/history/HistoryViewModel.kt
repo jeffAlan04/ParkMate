@@ -23,7 +23,7 @@ sealed class HistoryFilter {
     data class ByType(val type: ParkingType) : HistoryFilter()
 }
 
-data class HistoryEnter(
+data class HistoryEntry(
     val session: ParkingSession,
     val vehicleName: String,
     val cost: Double
@@ -37,18 +37,16 @@ class HistoryViewModel(private val parkingRepository: ParkingRepository, private
     val vehicles: StateFlow<List<Vehicle>> = vehicleRepository.getAllVehicles()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val filteredHistory: StateFlow<List<HistoryEnter>> = combine(
+    val filteredHistory: StateFlow<List<HistoryEntry>> = combine(
         parkingRepository.getHistory(),
         vehicles,
         _filter
     ) {
         sessions, vehicleList, currentFilter ->
         sessions
-            .filter { it.endTime != null }
             .filter { session -> matchesFilter(session, currentFilter) }
-            .sortedByDescending { it.startTime }
             .map { session ->
-                HistoryEnter(
+                HistoryEntry(
                     session = session,
                     vehicleName = vehicleList.find { it.id == session.vehicleId }?.name
                         ?: "Veicolo",
@@ -71,9 +69,9 @@ class HistoryViewModel(private val parkingRepository: ParkingRepository, private
 
     private fun isWithinRange(startTime: Long, range: TimeRange): Boolean {
         val millisBack = when (range) {
-            TimeRange.TODAY -> 24 * 3600000
-            TimeRange.WEEK -> 7 * 24 * 3600000
-            TimeRange.MONTH -> 30 * 24 * 3600000
+            TimeRange.TODAY -> 24 * 3600000L
+            TimeRange.WEEK -> 7 * 24 * 3600000L
+            TimeRange.MONTH -> 30 * 24 * 3600000L
         }
         return startTime >= System.currentTimeMillis() - millisBack
 

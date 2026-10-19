@@ -89,7 +89,7 @@ class ParkingExpiryWorker(context: Context, params: WorkerParameters) : Coroutin
         }
 
         // Generazione di un ID univoco
-        val notificationId = (vehicleId * 2 + if (isWarning) 1 else 0).toInt()
+        val notificationId = 2000000 + (vehicleId * 2 + if (isWarning) 1 else 0).toInt()
         NotificationManagerCompat.from(applicationContext).notify(notificationId, builder.build())
     }
 }

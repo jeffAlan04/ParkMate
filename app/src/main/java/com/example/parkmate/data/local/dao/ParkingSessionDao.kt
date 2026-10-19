@@ -15,7 +15,7 @@ interface ParkingSessionDao {
     fun getActiveSessions(): Flow<List<ParkingSession>>
 
     // Recupera lo storico dei parcheggi terminati
-    @Query("SELECT * FROM parkingSession WHERE endTime IS NOT NULL ORDER BY startTime DESC")
+    @Query("SELECT * FROM parkingSession WHERE endTime IS NOT NULL ORDER BY endTime DESC")
     fun getHistory(): Flow<List<ParkingSession>>
 
     // Recupera le sessioni appartenenti ad un veicolo

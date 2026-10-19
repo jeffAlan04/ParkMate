@@ -4,8 +4,8 @@ import android.content.Context
 import androidx.room.Room
 import com.example.parkmate.data.local.ParkMateDatabase
 import com.example.parkmate.data.location.LocationProvider
-import com.example.parkmate.data.repository.LocationRepository
-import com.example.parkmate.data.repository.LocationRepositoryImpl
+import com.example.parkmate.data.repository.SavedLocationRepository
+import com.example.parkmate.data.repository.SavedLocationRepositoryImpl
 import com.example.parkmate.data.repository.ParkingRepository
 import com.example.parkmate.data.repository.ParkingRepositoryImpl
 import com.example.parkmate.data.repository.VehicleRepository
@@ -22,12 +22,11 @@ class AppContainer(context: Context) {
         .fallbackToDestructiveMigration(dropAllTables = true)
         .build()
 
-    // Crea il repository dei veicoli quando viene utilizzato la prima volta
+    // Crea il repository dei veicoli al primo utilizzo
     val vehicleRepository: VehicleRepository by lazy {
         VehicleRepositoryImpl(database.vehicleDao())
     }
 
-    // Crea il repository dei luoghi salvati quando viene utilizzato la prima volta
     val parkingRepository: ParkingRepository by lazy {
         ParkingRepositoryImpl(database.parkingSessionDao())
     }
@@ -36,8 +35,9 @@ class AppContainer(context: Context) {
     val locationProvider: LocationProvider by lazy {
         LocationProvider(LocationServices.getFusedLocationProviderClient(context))
     }
-    val locationRepository: LocationRepository by lazy {
-        LocationRepositoryImpl(database.savedLocationDao())
+    // Crea il repository dei luoghi salvati al primo utilizzo
+    val savedLocationRepository: SavedLocationRepository by lazy {
+        SavedLocationRepositoryImpl(database.savedLocationDao())
     }
 
     // Pianificatore delle notifiche di scadenza

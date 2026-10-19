@@ -27,7 +27,7 @@ class GeofenceRestoreReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 // Recupera la lista aggiornata di tutti i luoghi salvati dall'utente
-                val locations = app.container.locationRepository.getAllLocations().first()
+                val locations = app.container.savedLocationRepository.getAllLocations().first()
                 
                 // Registra nuovamente tutti i geofence associati ai luoghi salvati
                 app.container.geofenceManager.registerAll(locations)

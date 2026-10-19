@@ -38,7 +38,7 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
                 val container = (context.applicationContext as ParkMateApplication).container
                 
                 // Recupera luoghi salvati, sessioni attive e veicoli
-                val locations = container.locationRepository.getAllLocations().first()
+                val locations = container.savedLocationRepository.getAllLocations().first()
                 val sessions = container.parkingRepository.getActiveSession().first()
                 val vehicles = container.vehicleRepository.getAllVehicles().first()
 

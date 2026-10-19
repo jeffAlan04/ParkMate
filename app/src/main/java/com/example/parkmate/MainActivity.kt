@@ -97,7 +97,7 @@ class MainActivity : ComponentActivity() {
 }
 
 // Modello dati per gli elementi della barra di navigazione inferiore
-private data class BottonNavItem(val route: Routes, val label: String, val icon: ImageVector)
+private data class BottomNavItem(val route: Routes, val label: String, val icon: ImageVector)
 
 // Composable che definisce la struttura dell'app con navigazione e BottomBar
 @Composable
@@ -120,11 +120,11 @@ fun ParkMateApp(
 
     // Elenco delle destinazioni principali nella barra di navigazione
     val bottomNavItems = listOf(
-        BottonNavItem(Routes.VehiclesList, "Veicoli", Icons.Default.DirectionsCar),
-        BottonNavItem(Routes.StartPark, "Parcheggi", Icons.Default.LocalParking),
-        BottonNavItem(Routes.Map, "Mappa", Icons.Default.Map),
-        BottonNavItem(Routes.History, "Storico", Icons.Default.History),
-        BottonNavItem(Routes.Stats, "Statistiche", Icons.Default.BarChart)
+        BottomNavItem(Routes.VehiclesList, "Veicoli", Icons.Default.DirectionsCar),
+        BottomNavItem(Routes.StartPark, "Parcheggi", Icons.Default.LocalParking),
+        BottomNavItem(Routes.Map, "Mappa", Icons.Default.Map),
+        BottomNavItem(Routes.History, "Storico", Icons.Default.History),
+        BottomNavItem(Routes.Stats, "Statistiche", Icons.Default.BarChart)
     )
 
     Scaffold(

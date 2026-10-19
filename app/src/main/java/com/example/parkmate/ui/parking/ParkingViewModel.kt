@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.parkmate.data.local.entity.ParkingSession
 import com.example.parkmate.data.local.entity.ParkingType
 import com.example.parkmate.data.local.entity.Vehicle
-import com.example.parkmate.data.repository.LocationRepository
+import com.example.parkmate.data.repository.SavedLocationRepository
 import com.example.parkmate.data.repository.ParkingRepository
 import com.example.parkmate.data.repository.VehicleRepository
 import com.example.parkmate.data.local.entity.SavedLocation
@@ -39,7 +39,7 @@ private fun tickerFlow(intervalMillis: Long = 1000L): Flow<Unit> = flow {
 class ParkingViewModel(
     private val parkingRepository: ParkingRepository,
     vehicleRepository: VehicleRepository,
-    locationRepository: LocationRepository,
+    savedLocationRepository: SavedLocationRepository,
     private val locationProvider: LocationProvider,
     private val alarmScheduler: ParkingAlarmScheduler
 ) : ViewModel() {
@@ -49,7 +49,7 @@ class ParkingViewModel(
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Recupera tutti i luoghi salvati
-    val savedLocations: StateFlow<List<SavedLocation>> = locationRepository.getAllLocations()
+    val savedLocations: StateFlow<List<SavedLocation>> = savedLocationRepository.getAllLocations()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Restituisce la posizione GPS attuale del dispositivo

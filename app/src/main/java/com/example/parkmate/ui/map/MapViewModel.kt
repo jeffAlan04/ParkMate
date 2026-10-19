@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.parkmate.data.local.entity.ParkingType
 import com.example.parkmate.data.local.entity.SavedLocation
-import com.example.parkmate.data.repository.LocationRepository
+import com.example.parkmate.data.repository.SavedLocationRepository
 import com.example.parkmate.geofence.GeofenceManager
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 //ViewModel che gestisce la logica dei luoghi salvati dall'utente.
-class MapViewModel(private val repository: LocationRepository, private val geofenceManager: GeofenceManager) : ViewModel() {
+class MapViewModel(private val repository: SavedLocationRepository, private val geofenceManager: GeofenceManager) : ViewModel() {
 
     // Espone la lista di tutti i luoghi salvati come StateFlow.
     val locations: StateFlow<List<SavedLocation>> = repository.getAllLocations()

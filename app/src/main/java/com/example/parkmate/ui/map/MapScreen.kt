@@ -69,17 +69,26 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.input.KeyboardType
 import com.example.parkmate.ui.common.formatPrice
 import com.example.parkmate.ui.common.toPriceOrNull
 import com.example.parkmate.ui.parking.label
 import com.example.parkmate.ui.theme.Spacing
+import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.model.LatLngBounds
+import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapUiSettings
 
 // Modalità di visualizzazione della mappa.
 private enum class MapMode { SAVED_LOCATIONS, ACTIVE_SESSIONS }
 
 // Posizione di default centrata su Bologna
 private val DEFAULT_POSITION = LatLng(44.4949, 11.3426)
+
+private const val DEFAULT_ZOOM = 12f
+private const val MAX_FIT_ZOOM = 14f
 
 // Modelli per gestire l'aggiunta o la modifica di un luogo
 private sealed class LocationFormMode {
@@ -102,20 +111,36 @@ fun MapScreen(
     var selectedSession by remember { mutableStateOf<ActiveSessionDisplay?>(null) }
     var formMode by remember { mutableStateOf<LocationFormMode?>(null) }
     var mapMode by remember { mutableStateOf(MapMode.SAVED_LOCATIONS) }
+    var mapLoaded by remember(formMode == null) { mutableStateOf(false) }
 
-    // Posizione iniziale della telecamera in base alla modalità
-    val initialPosition = when (mapMode) {
-        MapMode.ACTIVE_SESSIONS -> activeSessions.firstOrNull()?.let { LatLng(it.session.latitude, it.session.longitude) } ?: DEFAULT_POSITION
-        MapMode.SAVED_LOCATIONS -> savedLocation.firstOrNull()?.let { LatLng(it.latitude, it.longitude) }
-    } ?: DEFAULT_POSITION
-
-    val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(initialPosition, 14f)
+    // Punti da inquadrare in base alla modalità
+    val pointsToShow = when (mapMode) {
+        MapMode.SAVED_LOCATIONS -> savedLocation.map { LatLng(it.latitude, it.longitude) }
+        MapMode.ACTIVE_SESSIONS -> activeSessions.map { LatLng(it.session.latitude, it.session.longitude) }
     }
 
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(DEFAULT_POSITION, DEFAULT_ZOOM)
+    }
+
+    // Margine tra i marker e il bordo della mappa
+    val boundsPadding = with(LocalDensity.current) { 64.dp.roundToPx() }
+
     // Effect per centrare la mappa quando si cambia modalità
-    LaunchedEffect(mapMode) {
-        cameraPositionState.position = CameraPosition.fromLatLngZoom(initialPosition, 14f)
+    LaunchedEffect(mapLoaded, mapMode, pointsToShow.size) {
+        if (!mapLoaded) return@LaunchedEffect
+        when (pointsToShow.size) {
+            0 -> CameraUpdateFactory.newLatLngZoom(DEFAULT_POSITION, 13f)
+            1 -> CameraUpdateFactory.newLatLngZoom(pointsToShow.first(), 15f)
+            else -> {
+                val bounds = LatLngBounds.builder().apply { pointsToShow.forEach { include(it) } }.build()
+                CameraUpdateFactory.newLatLngBounds(bounds, boundsPadding)
+
+                if (cameraPositionState.position.zoom > MAX_FIT_ZOOM) {
+                    cameraPositionState.move(CameraUpdateFactory.zoomTo(MAX_FIT_ZOOM))
+                }
+            }
+        }
     }
 
     Column(
@@ -155,6 +180,7 @@ fun MapScreen(
             GoogleMap(
                 modifier = Modifier.fillMaxSize(),
                 cameraPositionState = cameraPositionState,
+                onMapLoaded = { mapLoaded = true },
                 onMapLongClick = { latLng ->
                     // Click prolungato per avviare l'aggiunta di un nuovo luogo
                     if (mapMode == MapMode.SAVED_LOCATIONS) {
@@ -261,22 +287,15 @@ private fun LocationFormSheet(
     onSave: (name: String, lat: Double, lng: Double, type: ParkingType, hourlyRate: Double?, fixedCost: Double?, geofenceEnabled: Boolean, geofenceRadius: Float) -> Unit,
     onDelete: (() -> Unit)?
 ) {
-    // Caricamento valori iniziali
-    val initialLatitude = when (mode) {
-        is LocationFormMode.Add -> mode.latitude
-        is LocationFormMode.Edit -> mode.location.latitude
-    }
-
-    val initialLongitude = when (mode) {
-        is LocationFormMode.Add -> mode.longitude
-        is LocationFormMode.Edit -> mode.location.longitude
+    // Posizione iniziale del marker
+    val initialPosition = when (mode) {
+        is LocationFormMode.Add -> LatLng(mode.latitude, mode.longitude)
+        is LocationFormMode.Edit -> LatLng(mode.location.latitude, mode.location.longitude)
     }
 
     var name by remember { mutableStateOf((mode as? LocationFormMode.Edit)?.location?.name ?: "") }
-    var latitudeText by remember { mutableStateOf(initialLatitude.toString()) }
-    var longitudeText by remember { mutableStateOf(initialLongitude.toString()) }
+    var markerPosition by remember { mutableStateOf(initialPosition) }
     var selectedType by remember { mutableStateOf((mode as? LocationFormMode.Edit)?.location?.parkingType ?: ParkingType.FREE) }
-
     var hourlyRateText by remember { mutableStateOf((mode as? LocationFormMode.Edit)?.location?.hourlyRate?.toString() ?: "") }
     var fixedCostText by remember { mutableStateOf((mode as? LocationFormMode.Edit)?.location?.fixedCost?.toString() ?: "") }
 
@@ -307,18 +326,8 @@ private fun LocationFormSheet(
                 style = MaterialTheme.typography.titleLarge
             )
 
-            // Mappa interna al modal per spostare il marker
-            val markerPosition = remember(latitudeText, longitudeText) {
-                val lat = latitudeText.toDoubleOrNull()
-                val lng = longitudeText.toDoubleOrNull()
-                if (lat != null && lng != null)
-                    LatLng(lat, lng)
-                else
-                    null
-            }
-
             val cameraPositionState = rememberCameraPositionState {
-                position = CameraPosition.fromLatLngZoom(markerPosition ?: DEFAULT_POSITION, 16f)
+                position = CameraPosition.fromLatLngZoom(initialPosition, 16f)
             }
 
             val hourlyRate = hourlyRateText.toPriceOrNull()
@@ -332,17 +341,12 @@ private fun LocationFormSheet(
 
 
             GoogleMap(
-                modifier = Modifier.fillMaxWidth().height(200.dp),
+                modifier = Modifier.fillMaxWidth().height(200.dp).clip(MaterialTheme.shapes.medium),
                 cameraPositionState = cameraPositionState,
-                onMapClick = { latLng ->
-                    latitudeText = latLng.latitude.toString()
-                    longitudeText = latLng.longitude.toString()
-                }
+                onMapClick = { latLng -> markerPosition = latLng }
             ) {
-                markerPosition?.let { position ->
-                    val markerState = remember(position) { MarkerState(position = position) }
-                    Marker(state = markerState)
-                }
+                val markerState = remember(markerPosition) { MarkerState(position = markerPosition) }
+                Marker(state = markerState)
             }
 
             // Campi del form
@@ -353,23 +357,6 @@ private fun LocationFormSheet(
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier.fillMaxWidth()
             )
-
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = latitudeText,
-                    onValueChange = { latitudeText = it },
-                    label = { Text("Latitudine") },
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.weight(1f)
-                )
-                OutlinedTextField(
-                    value = longitudeText,
-                    onValueChange = { longitudeText = it },
-                    label = { Text("Longitudine") },
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.weight(1f)
-                )
-            }
 
             Text("Tipo di parcheggio", style = MaterialTheme.typography.labelLarge)
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -453,16 +440,14 @@ private fun LocationFormSheet(
             }
 
             // Validazione pulsante salva
-            val canSave = name.isNotBlank() && latitudeText.toDoubleOrNull() != null && longitudeText.toDoubleOrNull() != null && priceValid
+            val canSave = name.isNotBlank()  && priceValid
 
             Button(
                 onClick = {
-                    val lat = latitudeText.toDoubleOrNull() ?: return@Button
-                    val lng = longitudeText.toDoubleOrNull() ?: return@Button
                     onSave(
                         name,
-                        lat,
-                        lng,
+                        markerPosition.latitude,
+                        markerPosition.longitude,
                         selectedType,
                         hourlyRate.takeIf { selectedType == ParkingType.HOURLY},
                         fixedCost.takeIf { selectedType == ParkingType.TICKET},

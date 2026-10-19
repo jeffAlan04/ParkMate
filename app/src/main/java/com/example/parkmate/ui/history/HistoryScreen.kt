@@ -191,8 +191,7 @@ private fun ParkFilterChip(label: String, selected: Boolean, onClick: () -> Unit
 
 // Card per singola sessione con nome del veicolo, costo, data tipo e foto
 @Composable
-private fun HistoryEntryCard(entry: HistoryEnter) {
-    val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.ITALY) }
+private fun HistoryEntryCard(entry: HistoryEntry) {
     val shape = MaterialTheme.shapes.large
     var showPhoto by rememberSaveable { mutableStateOf(false) }
 
@@ -229,9 +228,9 @@ private fun HistoryEntryCard(entry: HistoryEnter) {
         }
         Spacer(Modifier.height(Spacing.xxs))
 
-        // Data e ora di inizio
+        // Data e ora di inizio e fine
         Text(
-            dateFormat.format(Date(entry.session.startTime)),
+            formatSessionInterval(entry.session.startTime, entry.session.endTime),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -257,6 +256,22 @@ private fun HistoryEntryCard(entry: HistoryEnter) {
                 FullScreenPhotoDialog(path = path, onDismiss = { showPhoto = false })
             }
         }
+    }
+}
+
+private fun formatSessionInterval(start: Long, end: Long?): String {
+    val dateTime = SimpleDateFormat("dd/MM/yyyy 'alle' HH:mm", Locale.ITALY)
+    if (end == null)
+        return dateTime.format(Date(start))
+
+    val day = SimpleDateFormat("yyyyMMdd", Locale.ITALY)
+    val time = SimpleDateFormat("HH:mm", Locale.ITALY)
+    val shortDateTime = SimpleDateFormat("dd/MM HH:mm", Locale.ITALY)
+
+    return if (day.format(Date(start)) == day.format(Date(end))) {
+        "${SimpleDateFormat("dd/MM/yyyy", Locale.ITALY).format(Date(start))}\n${time.format(Date(start))} – ${time.format(Date(end))}"
+    } else {
+        "${shortDateTime.format(Date(start))} – ${shortDateTime.format(Date(end))}"
     }
 }
 

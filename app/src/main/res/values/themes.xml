@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
-    <style name="Theme.ParkMate" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.ParkMate" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#FFF6F8FC</item>
+    </style>
 </resources>

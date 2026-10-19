@@ -2,6 +2,7 @@ package com.example.parkmate.data.local.entity
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(tableName = "parkingSession",
@@ -12,7 +13,9 @@ import androidx.room.PrimaryKey
             childColumns = ["vehicleId"],
             onDelete = ForeignKey.CASCADE
         )
-    ])
+    ],
+    indices = [Index("vehicleId")]
+)
 data class ParkingSession(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val vehicleId: Long,

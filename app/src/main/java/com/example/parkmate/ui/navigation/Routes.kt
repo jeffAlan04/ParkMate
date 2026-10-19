@@ -16,10 +16,6 @@ sealed interface Routes {
     @Serializable
     data object StartPark : Routes
 
-    @Serializable
-    data object LocationList : Routes
-    @Serializable
-    data class LocationForm(val locationId: Long? = null) : Routes
     // Schermata della mappa
     @Serializable
     data object Map : Routes

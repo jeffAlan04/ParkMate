@@ -4,7 +4,7 @@ import com.example.parkmate.data.local.dao.SavedLocationDao
 import com.example.parkmate.data.local.entity.SavedLocation
 import kotlinx.coroutines.flow.Flow
 
-class LocationRepositoryImpl(private val dao: SavedLocationDao) : LocationRepository {
+class SavedLocationRepositoryImpl(private val dao: SavedLocationDao) : SavedLocationRepository {
     // Restituisce tutte le posizioni salvate
     override fun getAllLocations(): Flow<List<SavedLocation>> = dao.getAll()
 

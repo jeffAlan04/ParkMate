@@ -69,7 +69,7 @@ private fun decodeSampled(path: String, reqSize: Int): Bitmap? {
     return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
 }
 
-// Helper asincrono per caricare e mantenere in memoria un'immagine bitmap in formato Compose.
+// Helper asincrono per caricare e mantenere in memoria un'immagine bitmap in formato Compose
 @Composable
 private fun rememberPhotoBitMap(path: String, reqSize: Int): ImageBitmap? = produceState<ImageBitmap?>(initialValue = null, path, reqSize) {
     value = withContext(Dispatchers.IO) {
@@ -78,7 +78,7 @@ private fun rememberPhotoBitMap(path: String, reqSize: Int): ImageBitmap? = prod
     }
 }.value
 
-// Visualizza una miniatura quadrata o rettangolare di una foto salvata.
+// Visualizza una miniatura quadrata o rettangolare di una foto salvata
 @Composable
 fun PhotoThumbnail(path: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val exists = remember(path) { File(path).exists() }

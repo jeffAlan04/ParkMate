@@ -9,7 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-// Ripristinare i Geofence al riavvio del dispositivo.
+// Ripristinare i Geofence al riavvio del dispositivo
 class GeofenceRestoreReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {

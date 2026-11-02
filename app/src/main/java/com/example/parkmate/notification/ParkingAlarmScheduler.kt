@@ -9,10 +9,8 @@ import com.example.parkmate.data.local.entity.ParkingSession
 import com.example.parkmate.data.local.entity.ParkingType
 import java.util.concurrent.TimeUnit
 
-// Gestisce la pianificazione delle notifiche di scadenza dei parcheggi tramite WorkManager.
-
+// Gestisce la pianificazione delle notifiche di scadenza dei parcheggi tramite WorkManager
 class ParkingAlarmScheduler(context: Context) {
-
     private val workManager = WorkManager.getInstance(context)
 
     // Pianifica due avvisi per la scadenza di un parcheggio: un warning e un final

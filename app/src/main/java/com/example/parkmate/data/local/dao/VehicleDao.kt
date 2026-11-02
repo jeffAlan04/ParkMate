@@ -18,6 +18,14 @@ interface VehicleDao {
     @Query("SELECT * FROM vehicles WHERE id = :vehicleId")
     suspend fun getById(vehicleId: Long): Vehicle?
 
+    // Conta i veicoli con questa targa, escluso quelli in modifica
+    @Query("SELECT COUNT(*) FROM vehicles WHERE plateNumber = :plateNumber AND id != :excludedVehicleId")
+    suspend fun countByPlate(plateNumber: String, excludedVehicleId: Long): Int
+
+    // Conta le bici con questo nome, esclusa quella in modifica
+    @Query("SELECT COUNT(*) FROM vehicles WHERE type = 'BICYCLE' AND name = :name COLLATE NOCASE AND id != :excludedVehicleId")
+    suspend fun countBicyclesByName(name: String, excludedVehicleId: Long): Int
+
     // Inserisce un nuovo veicolo
     @Insert
     suspend fun insert(vehicle: Vehicle): Long

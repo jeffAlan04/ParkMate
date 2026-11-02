@@ -18,7 +18,7 @@ import com.example.parkmate.data.local.entity.ParkingSession
 import com.example.parkmate.data.local.entity.SavedLocation
 import com.example.parkmate.notification.NotificationIntents
 
-// Gestisce la creazione e la visualizzazione delle notifiche relative al Geofencing.
+// Gestisce la creazione e la visualizzazione delle notifiche relative al Geofencing
 object GeofenceNotifier {
 
     private const val CHANNEL_ID = "geofence"

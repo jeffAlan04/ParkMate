@@ -6,6 +6,7 @@ import com.example.parkmate.data.local.entity.Vehicle
 import com.example.parkmate.data.local.entity.VehicleType
 import com.example.parkmate.data.repository.ParkingRepository
 import com.example.parkmate.data.repository.VehicleRepository
+import com.example.parkmate.data.repository.VehicleSaveResult
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -28,16 +29,20 @@ class VehicleViewModel(private val repository: VehicleRepository, parkingReposit
 
     suspend fun getVehicleById(id: Long): Vehicle? = repository.getVehicleById(id)
 
-    fun addVehicle(name: String, type: VehicleType, plateNumber: String?) {
-        viewModelScope.launch {
-            repository.addVehicle(Vehicle(name = name, type = type, plateNumber = plateNumber))
-        }
-    }
-
-    fun updateVehicle(id: Long, name: String, type: VehicleType, plateNumber: String?) {
-        viewModelScope.launch {
-            repository.updateVehicle(Vehicle(id = id, name = name, type = type, plateNumber = plateNumber))
-        }
+    suspend fun saveVehicle(
+        vehicleId: Long?,
+        name: String,
+        type: VehicleType,
+        plateNumber: String?
+    ): VehicleSaveResult {
+        val vehicle = Vehicle(
+            id = vehicleId ?: 0,
+            name = name,
+            type = type,
+            plateNumber = plateNumber
+        )
+        return if (vehicleId == null) repository.addVehicle(vehicle)
+        else repository.updateVehicle(vehicle)
     }
 
     fun deleteVehicle(vehicle: Vehicle) {

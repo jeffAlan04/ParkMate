@@ -11,14 +11,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-//ViewModel che gestisce la logica dei luoghi salvati dall'utente.
+//ViewModel che gestisce la logica dei luoghi salvati dall'utente
 class MapViewModel(private val repository: SavedLocationRepository, private val geofenceManager: GeofenceManager) : ViewModel() {
 
     // Espone la lista di tutti i luoghi salvati come StateFlow.
     val locations: StateFlow<List<SavedLocation>> = repository.getAllLocations()
         .stateIn(viewModelScope, SharingStarted.Companion.WhileSubscribed(5000), emptyList())
 
-    // Recupera un singolo luogo dal database in base al suo ID univoco.
+    // Recupera un singolo luogo dal database in base al suo ID univoco
 
     suspend fun getLocationById(id: Long): SavedLocation? = repository.getLocationById(id)
 

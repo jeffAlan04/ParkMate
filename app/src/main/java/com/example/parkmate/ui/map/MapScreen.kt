@@ -81,7 +81,7 @@ import com.google.android.gms.maps.model.LatLngBounds
 import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
 
-// Modalità di visualizzazione della mappa.
+// Modalità di visualizzazione della mappa
 private enum class MapMode { SAVED_LOCATIONS, ACTIVE_SESSIONS }
 
 // Posizione di default centrata su Bologna
@@ -96,7 +96,7 @@ private sealed class LocationFormMode {
     data class Edit(val location: SavedLocation) : LocationFormMode()
 }
 
-// Schermata della mappa principale.
+// Schermata della mappa principale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapScreen(
@@ -129,17 +129,18 @@ fun MapScreen(
     // Effect per centrare la mappa quando si cambia modalità
     LaunchedEffect(mapLoaded, mapMode, pointsToShow.size) {
         if (!mapLoaded) return@LaunchedEffect
-        when (pointsToShow.size) {
+        val cameraUpdate = when (pointsToShow.size) {
             0 -> CameraUpdateFactory.newLatLngZoom(DEFAULT_POSITION, 13f)
             1 -> CameraUpdateFactory.newLatLngZoom(pointsToShow.first(), 15f)
             else -> {
                 val bounds = LatLngBounds.builder().apply { pointsToShow.forEach { include(it) } }.build()
                 CameraUpdateFactory.newLatLngBounds(bounds, boundsPadding)
-
-                if (cameraPositionState.position.zoom > MAX_FIT_ZOOM) {
-                    cameraPositionState.move(CameraUpdateFactory.zoomTo(MAX_FIT_ZOOM))
-                }
             }
+        }
+        cameraPositionState.move(cameraUpdate)
+
+        if (pointsToShow.size > 1 && cameraPositionState.position.zoom > MAX_FIT_ZOOM) {
+            cameraPositionState.move(CameraUpdateFactory.zoomTo(MAX_FIT_ZOOM))
         }
     }
 
@@ -517,7 +518,7 @@ private fun LocationTypeCard(
     }
 }
 
-// Dettagli di un parcheggio attivo.
+// Dettagli di un parcheggio attivo
 @Composable
 private fun SessionDetailContent(display: ActiveSessionDisplay) {
     val session = display.session

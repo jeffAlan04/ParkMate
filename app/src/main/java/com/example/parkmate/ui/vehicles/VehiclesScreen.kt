@@ -49,7 +49,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.parkmate.data.local.entity.VehicleType
 import com.example.parkmate.ui.theme.Spacing
 
-// Schermata che visualizza la lista dei veicoli salvati dall'utente.
+// Schermata che visualizza la lista dei veicoli salvati dall'utente
 
 @Composable
 fun VehiclesScreen(
@@ -93,7 +93,7 @@ fun VehiclesScreen(
         }
     }
 
-    // Dialogo di conferma per l'eliminazione.
+    // Dialogo di conferma per l'eliminazione
     vehicleToDelete?.let { item ->
         DeleteVehicleDialog(
             item = item,
@@ -132,7 +132,7 @@ private fun VehiclesHeader(items: List<VehicleListItem>?, onAddVehicle: () -> Un
     }
 }
 
-// Swipe per eliminare un veicolo.
+// Swipe per eliminare un veicolo
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SwipeToDeleteVehicle(
@@ -183,7 +183,7 @@ private fun SwipeToDeleteVehicle(
     }
 }
 
-// Visualizza le informazioni di un veicolo: icona, nome, targa e badge di stato sosta.
+// Visualizza le informazioni di un veicolo: icona, nome, targa e badge di stato sosta
 @Composable
 private fun VehicleCard(item: VehicleListItem, onClick: () -> Unit) {
     val vehicle = item.vehicle
@@ -267,7 +267,7 @@ private fun ParkingStatusChip(isParked: Boolean) {
     }
 }
 
-// Schermata  mostrata quando l'utente non ha ancora aggiunto veicoli.
+// Schermata  mostrata quando l'utente non ha ancora aggiunto veicoli
 @Composable
 private fun EmptyVehicles(modifier: Modifier = Modifier) {
     Column(
@@ -284,7 +284,7 @@ private fun EmptyVehicles(modifier: Modifier = Modifier) {
     }
 }
 
-//  Dialog per confermare l'eliminazione di un veicolo.
+//  Dialog per confermare l'eliminazione di un veicolo
 @Composable
 private fun DeleteVehicleDialog(
     item: VehicleListItem,

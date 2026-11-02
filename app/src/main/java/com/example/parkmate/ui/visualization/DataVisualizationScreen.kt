@@ -203,7 +203,7 @@ private fun ParkingHeatMap(points: List<LatLng>, modifier: Modifier = Modifier) 
     }
 }
 
-// Barchart per confrontare il numero di parcheggi per tipologia.
+// Barchart per confrontare il numero di parcheggi per tipologia
 @Composable
 private fun ParkingCountBarChart(data: List<TypeCount>, modifier: Modifier = Modifier) {
     val maxCount = data.maxOf { it.count }

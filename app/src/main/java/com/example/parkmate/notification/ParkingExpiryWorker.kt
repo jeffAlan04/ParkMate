@@ -13,10 +13,9 @@ import androidx.work.WorkerParameters
 import android.Manifest
 import android.app.NotificationChannel
 
-// Mostra le notifiche di scadenza del parcheggio.
+// Mostra le notifiche di scadenza del parcheggio
 class ParkingExpiryWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params){
-
-    //Recupera i dati di input e invoca la visualizzazione della notifica.
+    //Recupera i dati di input e invoca la visualizzazione della notifica
     override suspend fun doWork(): Result {
         // Recupera l'id, il nome del veicolo e il flag di preavviso dai dati passati al worker
         val vehicleId = inputData.getLong("vehicleId", -1L)

@@ -45,7 +45,7 @@ import com.example.parkmate.ui.common.formatPrice
 import com.example.parkmate.ui.parking.label
 import java.util.Date
 
-//Categorie di filtro per lo storico.
+//Categorie di filtro per lo storico
 private enum class FilterCategory(val label: String) {
     NONE("Nessuno"), VEHICLE("Veicolo"), TYPE("Tipo"), PERIOD("Periodo")
 }
@@ -57,7 +57,7 @@ private val PERIODS = listOf(
     TimeRange.MONTH to "Mese"
 )
 
-//Schermata dello storico dei parcheggi conclusi.
+//Schermata dello storico dei parcheggi conclusi
 @Composable
 fun HistoryScreen(viewModel: HistoryViewModel = viewModel(factory = HistoryViewModelFactory)) {
     // Osservazione dello stato dal ViewModel
@@ -157,7 +157,7 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel(factory = HistoryViewM
     }
 }
 
-// Riga orizzontale a scorrimento per i filtri.
+// Riga orizzontale a scorrimento per i filtri
 @Composable
 private fun ChipRow(content: LazyListScope.() -> Unit) {
     LazyRow(
@@ -275,7 +275,7 @@ private fun formatSessionInterval(start: Long, end: Long?): String {
     }
 }
 
-// Tag per il tipo di parcheggio.
+// Tag per il tipo di parcheggio
 @Composable
 private fun TypeTag(type: ParkingType) {
     Text(
@@ -289,7 +289,7 @@ private fun TypeTag(type: ParkingType) {
     )
 }
 
-// Schermata per quando non ci sono sessioni salvate o filtrate.
+// Schermata per quando non ci sono sessioni salvate o filtrate
 @Composable
 private fun EmptyHistory(filtered: Boolean, modifier: Modifier = Modifier) {
     Column(

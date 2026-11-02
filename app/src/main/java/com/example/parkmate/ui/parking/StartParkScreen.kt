@@ -109,7 +109,7 @@ import com.example.parkmate.ui.navigation.NotificationTarget
 
 private enum class LocationSource { CURRENT, SAVED }
 
-// Schermata principale per l'avvio di un parcheggio e la visualizzazione di una sessione attiva.
+// Schermata principale per l'avvio di un parcheggio e la visualizzazione di una sessione attiva
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun StartParkScreen (
@@ -197,7 +197,7 @@ fun StartParkScreen (
         else coroutineScope.launch { snackbarHostState.showSnackbar("Permesso fotocamera negato") }
     }
 
-    // Avvia la procedura per scattare una foto controllando i permessi.
+    // Avvia la procedura per scattare una foto controllando i permessi
     fun onTakePhoto() {
         val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         if (granted)
@@ -592,7 +592,7 @@ fun StartParkScreen (
                                     horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                                     verticalArrangement = Arrangement.spacedBy(Spacing.sm)
                                 ) {
-                                    listOf(1, 10, 15, 30).forEach { minutes ->
+                                    listOf(1, 10, 15).forEach { minutes ->
                                         FilterChip(
                                             selected = warningMinutesBefore == minutes,
                                             onClick = { warningMinutesBefore = minutes },
@@ -741,7 +741,7 @@ private fun FormSection(
     }
 }
 
-// Mostra lo stato del rilevamento GPS.
+// Mostra lo stato del rilevamento GPS
 @Composable
 private fun LocationStatusRow(text: String, tint: Color) {
     Text(text, style = MaterialTheme.typography.bodyMedium, color = tint)
@@ -829,7 +829,7 @@ private fun PriceField(value: String, onValueChange: (String) -> Unit, label: St
     )
 }
 
-// Riepilogo testuale del costo precedentemente inserito per un luogo salvato.
+// Riepilogo testuale del costo precedentemente inserito per un luogo salvato
 @Composable
 private fun SavedLocationCostSumamry(location: SavedLocation) {
     Column(
@@ -927,7 +927,7 @@ private fun LocationAdjustmentMap(
     }
 }
 
-// Riepilogo completo di una sessione di parcheggio attiva.
+// Riepilogo completo di una sessione di parcheggio attiva
 @Composable
 private fun ActiveSessionSummary(
     display: ActiveSessionDisplay,
@@ -970,7 +970,7 @@ private fun ActiveSessionSummary(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "${display.vehicleName} · ${session.type.label}",
+                    "${display.vehicleName} - ${session.type.label}",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                     maxLines = 1,
@@ -1059,7 +1059,7 @@ private fun ActiveSessionSummary(
 }
 
 
-// Mostra le informazioni in tempo reale di un parcheggio attivo .
+// Mostra le informazioni in tempo reale di un parcheggio attivo
 @Composable
 private fun ParkingTrackerInfo(display: ActiveSessionDisplay) {
     val isTicket = display.session.type == ParkingType.TICKET

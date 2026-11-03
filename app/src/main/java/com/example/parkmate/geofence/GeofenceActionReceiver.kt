@@ -60,7 +60,6 @@ class GeofenceActionReceiver : BroadcastReceiver() {
     companion object {
         // Stringa di azione per identificare l'intent di chiusura parcheggio
         const val ACTION_END_PARKING = "com.example.parkmate.action.END_PARKING"
-        
         // Chiavi per gli extra contenuti nell'Intent
         const val EXTRA_SESSION_ID = "sessionId"
         const val EXTRA_NOTIFICATION_ID = "notificationId"

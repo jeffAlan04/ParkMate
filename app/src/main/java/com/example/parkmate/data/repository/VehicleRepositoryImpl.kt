@@ -43,7 +43,6 @@ class VehicleRepositoryImpl (private val dao: VehicleDao) : VehicleRepository{
         dao.delete(vehicle)
     }
 
-
     private suspend fun validate(vehicle: Vehicle): VehicleSaveResult {
         if (vehicle.type == VehicleType.BICYCLE) {
             val bicycleWithSameName = dao.countBicyclesByName(vehicle.name, vehicle.id)

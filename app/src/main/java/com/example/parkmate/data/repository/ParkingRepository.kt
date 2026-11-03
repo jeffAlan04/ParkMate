@@ -7,7 +7,6 @@ interface ParkingRepository {
     fun getActiveSession(): Flow<List<ParkingSession>>
     fun getHistory(): Flow<List<ParkingSession>>
     fun getVehicle(vehicleId: Long): Flow<List<ParkingSession>>
-
     suspend fun startSession(session: ParkingSession)
     suspend fun endSession(session: ParkingSession)
 }

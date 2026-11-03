@@ -13,22 +13,34 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+// Rappresenta un elemento della lista veicoli e il relativo stato di sosta
 data class VehicleListItem(val vehicle: Vehicle, val isParked: Boolean)
-class VehicleViewModel(private val repository: VehicleRepository, parkingRepository: ParkingRepository) : ViewModel() {
 
+// ViewModel che gestisce la logica dei veicoli dell'utente
+class VehicleViewModel(
+    private val repository: VehicleRepository, 
+    parkingRepository: ParkingRepository
+) : ViewModel() {
+
+    // Flow State che mostra la lista di tutti i veicoli salvati
     val vehicles: StateFlow<List<Vehicle>> = repository.getAllVehicles()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // Flow State che combina i veicoli con le sessioni attive per determinare quali sono parcheggiati
     val vehicleItems: StateFlow<List<VehicleListItem>?> = combine(
         repository.getAllVehicles(),
         parkingRepository.getActiveSession()
     ) { vehicles, sessions ->
+        // Crea un set di ID dei veicoli che hanno una sessione di parcheggio attiva
         val parkedIds = sessions.map { it.vehicleId }.toSet()
+        // Aggiunge un flag isParked a ciascun veicolo per indicare se è parcheggiato o meno
         vehicles.map { VehicleListItem(it, isParked = it.id in parkedIds) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
+    // Recupera un singolo veicolo in base al suo ID univoco.
     suspend fun getVehicleById(id: Long): Vehicle? = repository.getVehicleById(id)
 
+    // Salva i dati di un veicolo (sia inserimento che aggiornamento)
     suspend fun saveVehicle(
         vehicleId: Long?,
         name: String,
@@ -45,6 +57,7 @@ class VehicleViewModel(private val repository: VehicleRepository, parkingReposit
         else repository.updateVehicle(vehicle)
     }
 
+    // Elimina un veicolo dal database
     fun deleteVehicle(vehicle: Vehicle) {
         viewModelScope.launch {
             repository.deleteVehicle(vehicle)

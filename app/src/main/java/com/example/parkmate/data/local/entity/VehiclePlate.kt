@@ -1,8 +1,8 @@
 package com.example.parkmate.data.local.entity
 
 object VehiclePlate {
-    private val carPlatePattern = Regex("^[A-Z]{2}[0-9]{3}[A-Z]{2}$")
-    private val motorcyclePlatePattern = Regex("^[A-Z]{2}[0-9]{5}$")
+    private val carPlatePattern = Regex("^[A-Z]{2}[0-9]{3}[A-Z]{2}$") // Formato targa auto
+    private val motorcyclePlatePattern = Regex("^[A-Z]{2}[0-9]{5}$") // Formato targa moto
 
     const val MAX_LENGTH = 7
 

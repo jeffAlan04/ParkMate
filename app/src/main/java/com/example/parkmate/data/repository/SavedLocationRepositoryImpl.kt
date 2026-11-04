@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.Flow
 class SavedLocationRepositoryImpl(private val dao: SavedLocationDao) : SavedLocationRepository {
     // Restituisce tutte le posizioni salvate
     override fun getAllLocations(): Flow<List<SavedLocation>> = dao.getAll()
+    // Restituisce posizione tramite ID
     override suspend fun getLocationById(locationId: Long): SavedLocation? = dao.getById(locationId)
     // Aggiunge una posizione al DB
     override suspend fun addLocation(location: SavedLocation): Long = dao.insert(location)
